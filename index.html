@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>百家乐幸运6幸运7概率计算器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #eef2f7;
+    --bg2:       #f5f8fc;
+    --bg3:       #e0e8f2;
+    --surface:   #ffffff;
+    --surface2:  #f5f8fc;
+    --border:    #ccd8e8;
+    --text:      #1a1a1a;
+    --text-dim:  #888888;
+    --gold:      #e6820a;
+    --gold-light:#f0a030;
+    --gold-dark: #b86200;
+    --red:       #e03030;
+    --red-bright:#e03030;
+    --green:     #1aaa55;
+    --green-bright: #1aaa55;
+    --blue:      #1a73e8;
+    --accent1:   #e6820a;
+    --accent2:   #1aaa55;
+    --accent3:   #1a73e8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 21px;
+    overflow-x: hidden;
+  }
+
+  /* ── 背景装饰 ── */
+  body::before {
+    display: none;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+
+  /* ── 标题 ── */
+  header {
+    text-align: center;
+    padding: 16px 0 12px;
+    position: relative;
+  }
+  header::after {
+    content: '';
+    display: block;
+    width: 200px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    margin: 8px auto 0;
+  }
+
+  .title-en {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(22px, 4vw, 32px);
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-transform: uppercase;
+    opacity: 0.9;
+    margin-bottom: 8px;
+  }
+
+  .title-main {
+    font-size: clamp(28px, 5vw, 42px);
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+    letter-spacing: 0.02em;
+  }
+
+  .title-sub {
+    margin-top: 10px;
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.15em;
+  }
+
+  /* ── 规则说明卡 ── */
+  .rules-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+
+  .rule-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .rule-icon {
+    font-size: 25px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .rule-label {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+
+  .rule-value {
+    font-size: 21px;
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .payout-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .payout-badge {
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-size: 18px;
+    font-weight: 700;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.05em;
+  }
+
+  .payout-badge.p30 { background: rgba(201,168,76,0.15); color: var(--gold); border: 1px solid rgba(201,168,76,0.4); }
+  .payout-badge.p40 { background: rgba(192,57,43,0.15); color: #e88; border: 1px solid rgba(192,57,43,0.4); }
+  .payout-badge.p100 { background: rgba(39,174,96,0.15); color: var(--green-bright); border: 1px solid rgba(39,174,96,0.4); }
+
+  /* ── 主面板网格 ── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 640px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── 卡片 ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg2);
+  }
+
+  .card-icon { font-size: 18px; }
+  .card-title { font-size: 18px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+
+  .card-body { padding: 16px; }
+
+  /* ── 输入区 ── */
+  .input-section { grid-column: 1 / -1; }
+
+  .card-input-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .card-input {
+    flex: 1;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-family: 'Noto Serif SC', serif;
+    font-size: 21px;
+    font-weight: 600;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .card-input:focus { border-color: var(--gold); }
+  .card-input::placeholder { color: var(--text-dim); }
+
+  .btn {
+    padding: 14px 24px;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 20px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    transition: all 0.18s;
+    white-space: nowrap;
+  }
+
+  .btn-primary {
+    background: var(--gold);
+    color: #0d1117;
+  }
+
+  .btn-primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-danger {
+    background: #fff0f0;
+    color: var(--red);
+    border: 1px solid #ffcccc;
+  }
+  .btn-danger:hover { background: #ffe0e0; }
+
+  /* ── 快速牌面按钮 ── */
+  .quick-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .quick-label {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .chip {
+    width: 44px;
+    height: 54px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    color: var(--text);
+    font-family: 'Cinzel', serif;
+    font-size: 19px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .chip::before { display: none; }
+
+  .chip:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+    transform: translateY(-2px);
+    background: var(--bg3);
+  }
+
+  .chip:active { transform: translateY(0); }
+
+  /* ── 概率显示 ── */
+  .prob-total {
+    text-align: center;
+    padding: 20px 0 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  .prob-label {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .prob-value {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(40px, 8vw, 58px);
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+    filter: drop-shadow(0 0 12px rgba(201,168,76,0.4));
+    transition: all 0.4s ease;
+  }
+
+  .prob-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .prob-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .prob-row-badge {
+    flex-shrink: 0;
+    width: 80px;
+    text-align: center;
+    font-family: 'Cinzel', serif;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 4px 0;
+    border-radius: 4px;
+  }
+
+  .prob-row-bar-wrap {
+    flex: 1;
+    height: 8px;
+    background: var(--bg2);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .prob-row-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .bar-30 { background: linear-gradient(90deg, var(--gold-dark), var(--gold)); }
+  .bar-40 { background: linear-gradient(90deg, #8b2020, var(--red-bright)); }
+  .bar-100 { background: linear-gradient(90deg, #1a6b3a, var(--green-bright)); }
+
+  .prob-row-pct {
+    width: 68px;
+    text-align: right;
+    font-family: 'Cinzel', serif;
+    font-size: 19px;
+    font-weight: 700;
+  }
+
+  /* ── 期望值 ── */
+  .ev-display {
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: var(--bg3);
+    border-radius: 6px;
+    border-left: 3px solid var(--gold);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .ev-label { font-size: 19px; font-weight: 600; color: var(--text-dim); }
+  .ev-value { font-family: 'Cinzel', serif; font-size: 32px; font-weight: 700; }
+  .ev-positive { color: var(--green-bright); }
+  .ev-negative { color: var(--red-bright); }
+
+  /* ── 投注行 ── */
+  .natural7-display {
+    margin-top: 8px;
+    padding: 10px 14px;
+    background: var(--bg3);
+    border-radius: 6px;
+    border-left: 3px solid var(--red-bright);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .natural7-title {
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--text-dim);
+  }
+
+  .natural7-desc {
+    font-size: 15px;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  .natural7-prob {
+    font-family: 'Cinzel', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--red-bright);
+    white-space: nowrap;
+  }
+
+  .three7-display {
+    margin-top: 6px;
+    border-left-color: var(--green-bright);
+  }
+
+  .three7-prob {
+    color: var(--green-bright);
+  }
+
+  .combo7-display {
+    margin-top: 6px;
+    border-left-color: var(--blue);
+  }
+
+  /* 期望值4列行 */
+  .prob-rows-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .prob-rows-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .prob-rows-grid .natural7-display,
+  .prob-rows-grid .ev-display {
+    margin-top: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    padding: 8px 10px;
+    border-radius: 6px;
+  }
+  .prob-rows-grid .natural7-title,
+  .prob-rows-grid .ev-label { font-size: 16px; margin-bottom: 0; color: var(--text-dim); }
+  .prob-rows-grid .natural7-prob,
+  .prob-rows-grid .combo7-prob { font-size: 24px; }
+  .prob-rows-grid .ev-value { font-size: 24px; }
+
+  .combo7-prob {
+    font-family: 'Cinzel', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--blue);
+    white-space: nowrap;
+  }
+
+  .combo7-ev {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-align: right;
+    margin-top: 2px;
+  }
+
+  /* ── 牌靴状态 ── */
+  .deck-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+
+  .deck-cell {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 6px 8px;
+    text-align: center;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .deck-cell::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--gold);
+    transform-origin: left;
+    transition: transform 0.4s ease;
+  }
+
+  .deck-cell-label {
+    font-family: 'Cinzel', serif;
+    font-size: 21px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .deck-cell-count {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+    font-family: 'Cinzel', serif;
+  }
+
+  .deck-cell-max {
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .deck-cell.depleted .deck-cell-count { color: var(--red); opacity: 0.4; }
+  .deck-cell.low .deck-cell-count { color: #f0b429; }
+
+  .deck-cell:hover {
+    border-color: rgba(255,255,255,0.2);
+    background: var(--bg3);
+    transform: translateY(-1px);
+  }
+  .deck-cell:active { transform: translateY(0); }
+  .deck-cell.depleted { opacity: 0.3; pointer-events: none; }
+
+  .deck-total {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: var(--bg3);
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid var(--border);
+  }
+
+  .deck-total-label { font-size: 18px; font-weight: 600; color: var(--text-dim); }
+  .deck-total-val { font-family: 'Cinzel', serif; font-size: 25px; font-weight: 700; color: var(--text); }
+
+  /* ── 历史记录 ── */
+  .history-wrap {
+    max-height: 120px;
+    overflow-y: auto;
+    background: var(--bg2);
+    border-radius: 6px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+  }
+
+  .history-wrap::-webkit-scrollbar { width: 4px; }
+  .history-wrap::-webkit-scrollbar-track { background: transparent; }
+  .history-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+  #history-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .hist-chip {
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'Cinzel', serif;
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .history-empty { color: var(--text-dim); font-size: 16px; font-weight: 400; }
+
+  /* ── 状态提示 ── */
+  .status-bar {
+    margin-top: 12px;
+    min-height: 40px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 19px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s;
+    opacity: 0;
+  }
+
+  .status-bar.show { opacity: 1; }
+  .status-success { background: rgba(63,185,80,0.1); border: 1px solid rgba(63,185,80,0.25); color: var(--green-bright); }
+  .status-error { background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.25); color: var(--red-bright); }
+  .status-info { background: rgba(240,180,41,0.08); border: 1px solid rgba(240,180,41,0.2); color: var(--gold); }
+
+  /* ── Loading ── */
+  .loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(240,242,245,0.88);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .loading-overlay.show { opacity: 1; pointer-events: all; }
+
+  .spinner {
+    width: 40px; height: 40px;
+    border: 2px solid rgba(0,0,0,0.1);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 12px;
+  }
+
+  .loading-text {
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 15px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+  /* ── 分隔线 ── */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 4px 0 14px;
+  }
+
+  /* ── 动画 ── */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card { animation: fadeInUp 0.4s ease both; }
+  .card:nth-child(2) { animation-delay: 0.05s; }
+  .card:nth-child(3) { animation-delay: 0.1s; }
+  .card:nth-child(4) { animation-delay: 0.15s; }
+
+  .prob-value.updating {
+    animation: pulse 0.4s ease;
+  }
+
+  @keyframes pulse {
+    0% { filter: drop-shadow(0 0 12px rgba(201,168,76,0.4)); }
+    50% { filter: drop-shadow(0 0 30px rgba(201,168,76,0.9)); }
+    100% { filter: drop-shadow(0 0 12px rgba(201,168,76,0.4)); }
+  }
+
+  /* ── 提示图标动画 ── */
+  .lucky7-icon {
+    display: inline-block;
+    font-size: 50px;
+    margin-bottom: 10px;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  /* ══════════════════════════════════════
+     手机适配
+  ══════════════════════════════════════ */
+  @media (max-width: 600px) {
+
+    .container {
+      padding: 12px 10px 48px;
+    }
+
+    header {
+      padding: 24px 0 20px;
+    }
+
+    .lucky7-icon { font-size: 40px; }
+
+    .title-sub {
+      font-size: 16px;
+      letter-spacing: 0.05em;
+    }
+
+    /* 规则卡竖排 */
+    .rules-card {
+      grid-template-columns: 1fr;
+      padding: 14px 16px;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    /* 主网格单列 */
+    .main-grid {
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .input-section { grid-column: 1; }
+
+    .card-body { padding: 14px; }
+    .card-header { padding: 12px 14px; }
+
+    /* 输入行竖排：文本框占满 + 按钮并排 */
+    .card-input-row {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .card-input {
+      width: 100%;
+      flex: none;
+      font-size: 20px; /* 防止 iOS 自动缩放 */
+      padding: 13px 14px;
+    }
+
+    .btn {
+      padding: 13px 20px;
+      font-size: 19px;
+    }
+
+    /* 快速选牌按钮 */
+    .chip {
+      width: 40px;
+      height: 48px;
+      font-size: 18px;
+    }
+
+    .chip[style*="width:58px"] {
+      width: 52px !important;
+    }
+
+    /* 概率大字 */
+    .prob-value {
+      font-size: clamp(36px, 12vw, 52px);
+    }
+
+    .prob-row-badge {
+      width: 72px;
+      font-size: 15px;
+    }
+
+    .prob-row-pct {
+      width: 60px;
+      font-size: 18px;
+    }
+
+    /* 牌靴网格：5列保持，缩小内边距 */
+    .deck-grid {
+      gap: 6px;
+    }
+
+    .deck-cell {
+      padding: 8px 4px 6px;
+    }
+
+    .deck-cell-label { font-size: 18px; }
+    .deck-cell-count { font-size: 22px; }
+    .deck-cell-max { font-size: 14px; }
+
+    /* 触发概率卡：2列紧凑网格 */
+    .card-body .ev-display {
+      margin-top: 10px;
+      padding: 8px 12px;
+    }
+    .ev-label { font-size: 15px; }
+    .ev-value { font-size: 22px; }
+
+    .prob-rows-grid {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .prob-rows-grid .natural7-display,
+    .prob-rows-grid .ev-display {
+      padding: 6px 7px;
+    }
+
+    .prob-rows-grid .natural7-title,
+    .prob-rows-grid .ev-label { font-size: 12px; }
+    .prob-rows-grid .natural7-prob,
+    .prob-rows-grid .combo7-prob,
+    .prob-rows-grid .ev-value  { font-size: 16px; }
+
+    /* 历史记录 */
+    .history-wrap { max-height: 100px; }
+
+    .hist-chip {
+      width: 30px;
+      height: 30px;
+      font-size: 15px;
+    }
+
+    #histCount { font-size: 16px; }
+  }
+
+  /* 极小屏 (360px 以下) */
+  @media (max-width: 360px) {
+    .deck-grid { grid-template-columns: repeat(5, 1fr); gap: 4px; }
+    .deck-cell-label { font-size: 15px; }
+    .deck-cell-count { font-size: 19px; }
+    .chip { width: 36px; height: 44px; font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">CALCULATING · 计算中</div>
+</div>
+
+<div class="container">
+  <header>
+    <h1 class="title-main">百家乐幸运6幸运7概率计算器</h1>
+  </header>
+
+  <!-- 主面板 -->
+  <div class="main-grid">
+
+    <!-- 概率结果 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-icon">📊</span>
+        <span class="card-title">期望值</span>
+      </div>
+      <div class="card-body">
+        <div class="prob-rows-grid">
+        <div class="natural7-display ev-display" style="margin-top:0">
+          <div class="natural7-title ev-label">超级7：</div>
+          <div class="natural7-prob ev-value ev-negative" id="evValue">—</div>
+        </div>
+
+        <div class="natural7-display">
+          <div class="natural7-title">闲7两张：</div>
+          <div class="natural7-prob" id="natural7Ev">—</div>
+        </div>
+
+        <div class="natural7-display three7-display">
+          <div class="natural7-title">闲7三张：</div>
+          <div class="natural7-prob three7-prob" id="three7Ev">—</div>
+        </div>
+
+        <div class="natural7-display combo7-display">
+          <div class="natural7-title">闲7组合：</div>
+          <div class="combo7-prob" id="comboEv">—</div>
+        </div>
+        </div>
+
+        <div class="prob-rows-grid prob-rows-grid-3">
+        <div class="natural7-display">
+          <div class="natural7-title">庄6两张：</div>
+          <div class="natural7-prob" id="banker6TwoEv">—</div>
+        </div>
+
+        <div class="natural7-display three7-display">
+          <div class="natural7-title">庄6三张：</div>
+          <div class="natural7-prob three7-prob" id="banker6ThreeEv">—</div>
+        </div>
+
+        <div class="natural7-display combo7-display">
+          <div class="natural7-title">庄6组合：</div>
+          <div class="combo7-prob" id="banker6ComboEv">—</div>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 牌靴状态 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-icon">🀄</span>
+        <span class="card-title">牌靴剩余（点击移除一张）</span>
+        <button class="btn btn-danger" style="margin-left:auto;padding:6px 14px;font-size:13px;" onclick="resetDeck()">重置</button>
+      </div>
+      <div class="card-body">
+        <div class="deck-grid" id="deckGrid">
+          <!-- 动态生成 -->
+        </div>
+        <div id="deckTotalWrap" class="deck-total">
+          <span class="deck-total-label">剩余总张数</span>
+          <span class="deck-total-val" id="deckTotal">416</span>
+        </div>
+        <div class="status-bar" id="statusBar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 历史记录 -->
+  <div class="card" style="animation-delay:0.2s">
+    <div class="card-header">
+      <span class="card-icon">📜</span>
+      <span class="card-title">已移除记录</span>
+      <span id="histCount" style="margin-left:auto;font-size:12px;color:var(--text-dim)">0 张</span>
+    </div>
+    <div class="card-body">
+      <div class="history-wrap">
+        <div id="history-list">
+          <span class="history-empty">尚未输入任何牌</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = `${location.protocol}//${location.hostname}:${location.port}/lucky7-api`;
+let history_cards = [];
+
+// ── Session 管理（localStorage 持久化）──
+function getSid() { return localStorage.getItem('lucky7_sid') || ''; }
+function saveSid(sid) { if (sid) localStorage.setItem('lucky7_sid', sid); }
+
+function apiFetch(url, options = {}) {
+  const sid = getSid();
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (sid) headers['X-Session-Id'] = sid;
+  return fetch(url, { ...options, headers })
+    .then(res => {
+      const newSid = res.headers.get('X-Session-Id');
+      if (newSid) saveSid(newSid);
+      return res.json();
+    });
+}
+
+const CARD_LABELS = {
+  0: '10', 1: 'A', 2: '2', 3: '3', 4: '4',
+  5: '5', 6: '6', 7: '7', 8: '8', 9: '9'
+};
+
+const CARD_MAX = { 0: 128, 1: 32, 2: 32, 3: 32, 4: 32, 5: 32, 6: 32, 7: 32, 8: 32, 9: 32 };
+
+// ── 初始化牌靴显示 ──
+function initDeckGrid() {
+  const order = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
+  const labels = { 0: '10/J', 1: 'A', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' };
+  const grid = document.getElementById('deckGrid');
+  grid.innerHTML = '';
+  for (const v of order) {
+    const cell = document.createElement('div');
+    cell.className = 'deck-cell';
+    cell.id = `dc-${v}`;
+    cell.style.cursor = 'pointer';
+    cell.title = '点击移除一张';
+    cell.innerHTML = `
+      <div class="deck-cell-label">${labels[v]}</div>
+      <div class="deck-cell-count" id="dcc-${v}">${CARD_MAX[v]}</div>
+      <div class="deck-cell-max">/ ${CARD_MAX[v]}</div>`;
+    cell.addEventListener('click', () => removeOneCard(v));
+    grid.appendChild(cell);
+  }
+}
+
+function updateDeckUI(deck) {
+  let total = 0;
+  for (const v in deck) {
+    const count = deck[v] || 0;
+    total += count;
+    const el = document.getElementById(`dcc-${v}`);
+    const cell = document.getElementById(`dc-${v}`);
+    if (el) {
+      el.textContent = count;
+      cell.classList.toggle('depleted', count === 0);
+      cell.classList.toggle('low', count > 0 && count <= Math.floor(CARD_MAX[v] * 0.2));
+      // 底部进度条
+      const pct = count / CARD_MAX[v];
+      cell.style.setProperty('--bar-pct', pct);
+      cell.style.cssText = `--bar-pct:${pct}`;
+      const after = cell.querySelector ? null : null;
+      cell.style.setProperty('--fill', `${(pct*100).toFixed(0)}%`);
+    }
+  }
+  document.getElementById('deckTotal').textContent = total;
+}
+
+function updateProbUI(result) {
+  if (!result) return;
+  const { prob, prob4, prob5, prob6, ev, probNatural7 } = result;
+
+  const evEl = document.getElementById('evValue');
+  if (evEl) {
+    evEl.textContent = ev.toFixed(4);
+    evEl.className = 'ev-value ' + (ev >= 1 ? 'ev-positive' : 'ev-negative');
+  }
+
+  if (result.evNatural7 !== undefined) {
+    document.getElementById('natural7Ev').textContent = result.evNatural7.toFixed(4);
+  }
+  if (result.evThree7 !== undefined) {
+    document.getElementById('three7Ev').textContent = result.evThree7.toFixed(4);
+  }
+  if (result.evCombo !== undefined) {
+    document.getElementById('comboEv').textContent = result.evCombo.toFixed(4);
+  }
+  if (result.evBanker6Two !== undefined) {
+    document.getElementById('banker6TwoEv').textContent = result.evBanker6Two.toFixed(4);
+  }
+  if (result.evBanker6Three !== undefined) {
+    document.getElementById('banker6ThreeEv').textContent = result.evBanker6Three.toFixed(4);
+  }
+  if (result.evBanker6Combo !== undefined) {
+    document.getElementById('banker6ComboEv').textContent = result.evBanker6Combo.toFixed(4);
+  }
+}
+
+function updateHistoryUI(cards) {
+  const list = document.getElementById('history-list');
+  document.getElementById('histCount').textContent = cards.length + ' 张';
+  if (cards.length === 0) {
+    list.innerHTML = '<span class="history-empty">尚未输入任何牌</span>';
+    return;
+  }
+  list.innerHTML = cards.map(v => {
+    const label = v === 0 ? '10' : (v === 1 ? 'A' : v);
+    return `<div class="hist-chip">${label}</div>`;
+  }).join('');
+  // 滚动到最后
+  list.parentElement.scrollTop = list.parentElement.scrollHeight;
+}
+
+function showStatus(msg, type = 'info') {
+  const bar = document.getElementById('statusBar');
+  const wrap = document.getElementById('deckTotalWrap');
+  bar.className = `status-bar status-${type} show`;
+  bar.innerHTML = (type === 'success' ? '✓ ' : type === 'error' ? '✗ ' : '◆ ') + msg;
+  wrap.style.display = 'none';
+  clearTimeout(bar._timer);
+  bar._timer = setTimeout(() => {
+    bar.classList.remove('show');
+    wrap.style.display = '';
+  }, 3000);
+}
+
+function setLoading(show) {
+  document.getElementById('loadingOverlay').classList.toggle('show', show);
+}
+
+// ── 解析输入 ──
+function parseInput(input) {
+  const tokens = input.trim().split(/[\s,，]+/).filter(t => t.length > 0);
+  const cards = [];
+  for (const t of tokens) {
+    const up = t.toUpperCase();
+    if (up === 'A') cards.push(1);
+    else if (['10', 'T', 'J', 'Q', 'K'].includes(up)) cards.push(0);
+    else if (/^[2-9]$/.test(up)) cards.push(parseInt(up));
+    else return null;
+  }
+  return cards;
+}
+
+// ── 提交牌面 ──
+async function removeOneCard(v) {
+  setLoading(true);
+  try {
+    const data = await apiFetch(`${API}/remove`, {
+      method: 'POST',
+      body: JSON.stringify({ cards: [v] }),
+    });
+    if (data.failed && data.failed.length > 0) {
+      showStatus(`已无剩余，无法移除`, 'error');
+      return;
+    }
+    const label = v === 0 ? '10-K' : v === 1 ? 'A' : v;
+    showStatus(`已移除 ${label}`, 'success');
+    history_cards = history_cards.concat(data.removed || []);
+    updateDeckUI(data.deck);
+    updateProbUI(data.result);
+    updateHistoryUI(history_cards);
+  } catch (e) {
+    showStatus('网络错误', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function submitCards() {
+  const input = document.getElementById('cardInput');
+  const val = input.value.trim();
+  if (!val) return;
+
+  const cards = parseInput(val);
+  if (cards === null) {
+    showStatus('无法识别的牌面，请输入：A, 2-9, 10, J, Q, K', 'error');
+    return;
+  }
+  if (cards.length === 0) return;
+
+  setLoading(true);
+  try {
+    const data = await apiFetch(`${API}/remove`, {
+      method: 'POST',
+      body: JSON.stringify({ cards }),
+    });
+
+    if (data.failed && data.failed.length > 0) {
+      const failLabels = data.failed.map(v => v === 0 ? '10-K' : v === 1 ? 'A' : v);
+      showStatus(`${failLabels.join(', ')} 已无剩余，无法继续移除`, 'error');
+      // 仍然更新成功移除的部分
+      if (data.removed && data.removed.length > 0) {
+        history_cards = history_cards.concat(data.removed);
+        updateDeckUI(data.deck);
+        updateProbUI(data.result);
+        updateHistoryUI(history_cards);
+      }
+      input.value = '';
+      return;
+    }
+
+    const labels = data.removed.map(v => v === 0 ? '10' : v === 1 ? 'A' : v);
+    showStatus(`已移除 ${labels.join(', ')}`, 'success');
+
+    history_cards = history_cards.concat(data.removed || []);
+    updateDeckUI(data.deck);
+    updateProbUI(data.result);
+    updateHistoryUI(history_cards);
+    input.value = '';
+  } catch (e) {
+    showStatus('网络错误，请检查服务是否运行', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── 重置 ──
+async function resetDeck() {
+  if (!confirm('确认重置牌靴为全新8副牌？')) return;
+  setLoading(true);
+  try {
+    const data = await apiFetch(`${API}/reset`, { method: 'POST' });
+    history_cards = [];
+    updateDeckUI(data.deck);
+    updateProbUI(data.result);
+    updateHistoryUI([]);
+    showStatus('牌靴已重置（416张）', 'info');
+  } catch (e) {
+    showStatus('重置失败', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── 快速添加 ──
+function quickAdd(label) {
+  const input = document.getElementById('cardInput');
+  input.value = (input.value + ' ' + label).trim();
+  input.focus();
+}
+
+// ── 回车提交 ──
+document.addEventListener('DOMContentLoaded', () => {
+  initDeckGrid();
+
+  const cardInput = document.getElementById('cardInput');
+  if (cardInput) {
+    cardInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') submitCards();
+    });
+  }
+
+  // 初始加载概率
+  apiFetch(`${API}/calc`)
+    .then(data => {
+      updateDeckUI(data.deck);
+      updateProbUI(data.result);
+    })
+    .catch(err => {
+      console.error('API连接失败:', err);
+      showStatus('无法连接后端服务，请确认使用 http:// 访问（非https）', 'error');
+    });
+});
+</script>
+</body>
+</html>
