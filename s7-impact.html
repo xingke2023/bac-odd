@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>超级幸运7 · 牌值影响分析</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Cinzel:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #eef2f7;
+    --bg2:       #f5f8fc;
+    --bg3:       #e0e8f2;
+    --surface:   #ffffff;
+    --border:    #ccd8e8;
+    --text:      #1a1a1a;
+    --text-dim:  #888888;
+    --gold:      #e6820a;
+    --gold-light:#f0a030;
+    --red:       #e03030;
+    --green:     #1aaa55;
+    --blue:      #1a73e8;
+    --s7:        #b45309;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 18px;
+    overflow-x: hidden;
+  }
+
+  .container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+  }
+
+  header { text-align: center; padding: 14px 0 18px; }
+
+  .title-en {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(16px, 3vw, 22px);
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+
+  .title-main {
+    font-size: clamp(24px, 5vw, 36px);
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+  }
+
+  .title-sub {
+    margin-top: 8px;
+    font-size: 16px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+  }
+
+  .nav-links {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .nav-link {
+    font-size: 14px;
+    color: var(--blue);
+    text-decoration: none;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--surface);
+    transition: all 0.15s;
+  }
+  .nav-link:hover { border-color: var(--blue); background: #edf3ff; }
+
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    font-size: 15px;
+    color: var(--text-dim);
+    line-height: 1.9;
+  }
+  .info-card b { color: var(--text); }
+
+  /* EV 摘要 */
+  .ev-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 20px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .ev-box-left { display: flex; align-items: center; gap: 10px; }
+  .ev-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--s7); flex-shrink: 0; }
+  .ev-box-label { font-size: 16px; font-weight: 600; color: var(--text-dim); }
+  .ev-box-sub   { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+
+  .ev-box-val {
+    font-family: 'Cinzel', serif;
+    font-size: 30px;
+    font-weight: 700;
+  }
+  .ev-pos { color: var(--green); }
+  .ev-neg { color: var(--red); }
+
+  /* 牌靴 */
+  .deck-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .card-header {
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg2);
+  }
+
+  .card-title { font-size: 16px; font-weight: 700; color: var(--text-dim); letter-spacing: 0.04em; }
+
+  .btn {
+    padding: 6px 16px;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-danger { background: #fff0f0; color: var(--red); border: 1px solid #ffcccc; }
+  .btn-danger:hover { background: #ffe0e0; }
+
+  .card-body { padding: 12px 16px; }
+
+  .deck-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 7px;
+    margin-bottom: 10px;
+  }
+
+  .deck-cell {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 4px 6px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .deck-cell:hover { border-color: var(--gold); background: var(--bg3); transform: translateY(-1px); }
+  .deck-cell:active { transform: translateY(0); }
+  .deck-cell.depleted { opacity: 0.3; pointer-events: none; }
+  .deck-cell.low .deck-cell-count { color: #f0b429; }
+
+  .deck-cell-label { font-family: 'Cinzel', serif; font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .deck-cell-count { font-size: 22px; font-weight: 700; font-family: 'Cinzel', serif; color: var(--text); }
+  .deck-cell-max { font-size: 12px; color: var(--text-dim); }
+
+  .deck-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    background: var(--bg3);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .deck-info-label { font-size: 15px; color: var(--text-dim); font-weight: 600; }
+  .deck-info-val { font-family: 'Cinzel', serif; font-size: 20px; font-weight: 700; }
+
+  /* 影响表格 */
+  .impact-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .impact-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .impact-table th {
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    text-align: center;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .impact-table th.th-left { text-align: left; padding-left: 20px; }
+  .impact-table th.th-s7   { color: var(--s7); }
+
+  .impact-table td {
+    padding: 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .impact-table tr:last-child td { border-bottom: none; }
+  .impact-table tr:hover td { background: var(--bg2); }
+
+  .td-card {
+    padding: 12px 12px 12px 20px;
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text);
+    white-space: nowrap;
+    width: 120px;
+  }
+
+  .td-bar { padding: 0 12px; }
+
+  .bar-wrap {
+    position: relative;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    min-width: 260px;
+  }
+
+  .bar-wrap::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 6px; bottom: 6px;
+    width: 1px;
+    background: var(--border);
+  }
+
+  .bar-fill {
+    position: absolute;
+    top: 6px; bottom: 6px;
+    border-radius: 3px;
+    transition: width 0.5s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .bar-pos { left: 50%;  background: linear-gradient(90deg,  rgba(180,83,9,0.15), rgba(180,83,9,0.5)); }
+  .bar-neg { right: 50%; background: linear-gradient(270deg, rgba(224,48,48,0.15), rgba(224,48,48,0.5)); }
+
+  .td-val {
+    width: 130px;
+    padding: 12px 18px 12px 4px;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .val-num {
+    font-family: 'Cinzel', serif;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .val-pos  { color: var(--green); }
+  .val-neg  { color: var(--red); }
+  .val-zero { color: var(--text-dim); }
+
+  .val-tag {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+  .tag-pos { color: var(--green); opacity: 0.8; }
+  .tag-neg { color: var(--red);   opacity: 0.8; }
+
+  .impact-note {
+    padding: 8px 20px 10px;
+    font-size: 13px;
+    color: var(--text-dim);
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    line-height: 1.6;
+  }
+
+  /* 状态 */
+  .status-bar {
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    min-height: 36px;
+    margin-top: 8px;
+  }
+  .status-bar.show { opacity: 1; }
+  .status-success { background: rgba(26,170,85,0.1); border: 1px solid rgba(26,170,85,0.25); color: var(--green); }
+  .status-error   { background: rgba(224,48,48,0.1); border: 1px solid rgba(224,48,48,0.25); color: var(--red); }
+
+  /* Loading */
+  .loading-overlay {
+    position: fixed; inset: 0;
+    background: rgba(238,242,247,0.88);
+    z-index: 100;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .loading-overlay.show { opacity: 1; pointer-events: all; }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 2px solid rgba(0,0,0,0.1);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 10px;
+  }
+  .loading-text { font-size: 14px; color: var(--text-dim); letter-spacing: 0.1em; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  .container > * { animation: fadeInUp 0.4s ease both; }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">精确枚举中...</div>
+</div>
+
+<div class="container">
+  <header>
+    <div class="title-en">SUPER LUCKY 7 · CARD IMPACT</div>
+    <div class="title-main">超级幸运7 · 牌值影响分析</div>
+    <div class="title-sub">移除1张牌后，超级幸运7期望值（EV）的精确变化量</div>
+    <div class="nav-links">
+      <a href="/" class="nav-link">← 幸运6幸运7</a>
+      <a href="/lucky7-sim.html" class="nav-link">幸运7下注统计</a>
+    </div>
+  </header>
+
+  <!-- 说明 -->
+  <div class="info-card">
+    <b>超级幸运7：</b>闲家点数=7 且 庄家点数=6 时触发，赔率按总张数分档：<b>4张 ×30</b>、<b>5张 ×40</b>、<b>6张 ×100</b>。<br>
+    <b>阅读方式：</b>每行显示"从当前牌靴移除1张该牌值"后，超级幸运7期望值的变化量（单位：<b>bp 基点 = 万分之一</b>）。<br>
+    <b style="color:var(--green)">正值（绿）</b>= 对玩家有利（庄家优势下降）&emsp;
+    <b style="color:var(--red)">负值（红）</b>= 对庄家有利（庄家优势上升）<br>
+    点击牌靴格子可移除一张牌，影响值会实时重新计算。
+  </div>
+
+  <!-- 当前 EV -->
+  <div class="ev-box">
+    <div class="ev-box-left">
+      <span class="ev-dot"></span>
+      <div>
+        <div class="ev-box-label">超级幸运7 净期望</div>
+        <div class="ev-box-sub">4张×30 / 5张×40 / 6张×100</div>
+      </div>
+    </div>
+    <span class="ev-box-val" id="s7-ev">—</span>
+  </div>
+
+  <!-- 牌靴 -->
+  <div class="deck-card">
+    <div class="card-header">
+      <span class="card-title">当前牌靴（点击移除一张）</span>
+      <button class="btn btn-danger" onclick="resetDeck()">重置牌靴</button>
+    </div>
+    <div class="card-body">
+      <div class="deck-grid" id="deck-grid"></div>
+      <div class="deck-info">
+        <span class="deck-info-label">剩余牌数</span>
+        <span class="deck-info-val" id="deck-remaining">—</span>
+      </div>
+      <div class="status-bar" id="status-bar"></div>
+    </div>
+  </div>
+
+  <!-- 影响值表格 -->
+  <div class="impact-card">
+    <div class="card-header">
+      <span class="card-title">牌值影响值（bp）</span>
+    </div>
+    <table class="impact-table">
+      <thead>
+        <tr>
+          <th class="th-left">牌值</th>
+          <th class="th-s7">变化趋势</th>
+          <th class="th-s7">影响值 (bp)</th>
+        </tr>
+      </thead>
+      <tbody id="impact-tbody">
+        <tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-dim)">正在计算...</td></tr>
+      </tbody>
+    </table>
+    <div class="impact-note">
+      · 单位 bp = 基点 = 万分之一 &emsp;
+      · 影响值越大（绝对值），说明该牌对超级幸运7局面影响越显著 &emsp;
+      · 数据根据当前剩余牌靴精确枚举，非蒙特卡洛模拟
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = '/lucky7-api';
+const SID_KEY  = 'lucky7_sid'; // 与主页共用会话
+
+const LABELS      = ['10', 'A', '2', '3', '4', '5', '6', '7', '8', '9'];
+const FULL_LABELS = ['10/J/Q/K', 'A', '2', '3', '4', '5', '6', '7', '8', '9'];
+const MAXES       = [128, 32, 32, 32, 32, 32, 32, 32, 32, 32];
+
+async function apiFetch(url, options = {}) {
+  const sid = localStorage.getItem(SID_KEY);
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (sid) headers['X-Session-Id'] = sid;
+  const res = await fetch(url, { ...options, headers });
+  const newSid = res.headers.get('X-Session-Id');
+  if (newSid) localStorage.setItem(SID_KEY, newSid);
+  return res.json();
+}
+
+function setLoading(on) {
+  document.getElementById('loading').classList.toggle('show', on);
+}
+
+let statusTimer;
+function showStatus(msg, type = 'success') {
+  const el = document.getElementById('status-bar');
+  el.textContent = msg;
+  el.className = 'status-bar show status-' + type;
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+function renderDeck(deck) {
+  const grid = document.getElementById('deck-grid');
+  grid.innerHTML = '';
+  let total = 0;
+  for (let v = 0; v <= 9; v++) {
+    const cnt = deck[v] || 0;
+    total += cnt;
+    const cell = document.createElement('div');
+    cell.className = 'deck-cell' + (cnt === 0 ? ' depleted' : cnt <= 4 ? ' low' : '');
+    cell.innerHTML = `
+      <div class="deck-cell-label">${LABELS[v]}</div>
+      <div class="deck-cell-count">${cnt}</div>
+      <div class="deck-cell-max">/${MAXES[v]}</div>
+    `;
+    cell.onclick = () => removeCard(v);
+    grid.appendChild(cell);
+  }
+  document.getElementById('deck-remaining').textContent = total;
+}
+
+function renderEV(result) {
+  if (!result) return;
+  const netEV = result.ev - (1 - result.prob);
+  const el = document.getElementById('s7-ev');
+  el.textContent = netEV.toFixed(4);
+  el.className = 'ev-box-val ' + (netEV >= 0 ? 'ev-pos' : 'ev-neg');
+}
+
+function renderImpact(impact) {
+  const tbody = document.getElementById('impact-tbody');
+  if (!impact || impact.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--text-dim)">数据不足</td></tr>';
+    return;
+  }
+
+  let maxAbs = 0;
+  for (const x of impact) {
+    if (x.delta !== null) maxAbs = Math.max(maxAbs, Math.abs(x.delta));
+  }
+  if (maxAbs === 0) maxAbs = 1;
+
+  tbody.innerHTML = '';
+  for (const x of impact) {
+    const tr = document.createElement('tr');
+    if (x.delta === null) {
+      tr.innerHTML = `
+        <td class="td-card">${FULL_LABELS[x.v]}</td>
+        <td class="td-bar"><div class="bar-wrap"></div></td>
+        <td class="td-val"><span class="val-num val-zero">—</span></td>
+      `;
+    } else {
+      const bp     = x.delta * 10000;
+      const isPos  = bp > 0.005;
+      const isNeg  = bp < -0.005;
+      const pct    = Math.min(Math.abs(x.delta) / maxAbs * 46, 46);
+      const valCls = isPos ? 'val-pos' : isNeg ? 'val-neg' : 'val-zero';
+      const barCls = isPos ? 'bar-pos' : 'bar-neg';
+      const tagTxt = isPos ? '↑ 有利' : isNeg ? '↓ 不利' : '—';
+      const tagCls = isPos ? 'tag-pos' : isNeg ? 'tag-neg' : '';
+      const sign   = isPos ? '+' : '';
+      tr.innerHTML = `
+        <td class="td-card">${FULL_LABELS[x.v]}</td>
+        <td class="td-bar">
+          <div class="bar-wrap">
+            <div class="bar-fill ${barCls}" style="width:${pct}%"></div>
+          </div>
+        </td>
+        <td class="td-val">
+          <span class="val-num ${valCls}">${sign}${bp.toFixed(2)}</span>
+          <span class="val-tag ${tagCls}">${tagTxt}</span>
+        </td>
+      `;
+    }
+    tbody.appendChild(tr);
+  }
+}
+
+async function removeCard(v) {
+  setLoading(true);
+  try {
+    const data = await apiFetch(API_BASE + '/remove', {
+      method: 'POST',
+      body: JSON.stringify({ cards: [v] }),
+    });
+    if (data.removed && data.removed.length > 0) {
+      renderDeck(data.deck);
+      renderEV(data.result);
+      showStatus(`已移除 ${LABELS[v]}，重新计算影响值...`, 'success');
+      loadImpact();
+    } else {
+      showStatus('该牌已耗尽', 'error');
+    }
+  } catch(e) {
+    showStatus('网络错误', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function resetDeck() {
+  setLoading(true);
+  try {
+    const data = await apiFetch(API_BASE + '/reset', { method: 'POST' });
+    renderDeck(data.deck);
+    renderEV(data.result);
+    showStatus('已重置，重新计算影响值...', 'success');
+    loadImpact();
+  } catch(e) {
+    showStatus('网络错误', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function loadImpact() {
+  try {
+    const data = await apiFetch(API_BASE + '/s7-impact');
+    renderImpact(data.impact);
+  } catch(e) {
+    document.getElementById('impact-tbody').innerHTML =
+      '<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--red)">计算失败</td></tr>';
+  }
+}
+
+async function init() {
+  setLoading(true);
+  try {
+    const calcData = await apiFetch(API_BASE + '/calc');
+    renderDeck(calcData.deck);
+    renderEV(calcData.result);
+    loadImpact();
+  } catch(e) {
+    showStatus('无法连接服务器', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+init();
+</script>
+</body>
+</html>

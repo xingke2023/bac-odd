@@ -1,8 +1,9 @@
 'use strict';
 
 const http = require('http');
+const { enumerate, initDeck: enumInitDeck, makeBet, makeMultiTierBet } = require('./baccarat-enum');
 
-// ── 牌靴逻辑（从 lucky7.js 提取）──────────────────────────
+// ── 牌靴工具 ────────────────────────────────────────────────
 function initDeck() {
   const deck = {};
   for (let v = 1; v <= 9; v++) deck[v] = 32;
@@ -14,137 +15,812 @@ function totalCards(deck) {
   return Object.values(deck).reduce((s, c) => s + c, 0);
 }
 
-function handTotal(cards) {
-  return cards.reduce((s, c) => s + c, 0) % 10;
+// ── 辅助函数 ──────────────────────────────────────────────────
+// 判断头两张是否为例牌（天牌，8或9点）
+function isNatural(cards) {
+  return (cards[0] + cards[1]) % 10 >= 8;
 }
 
-// ── 精确枚举计算（替代蒙特卡洛）────────────────────────────
+// ── 精确枚举计算 ─────────────────────────────────────────────
 function calculateProbability(deck) {
-  const d = new Array(10).fill(0);
-  for (let v = 0; v <= 9; v++) d[v] = deck[v] || 0;
-  const N = d.reduce((a, b) => a + b, 0);
+  // 转为数组格式供枚举引擎使用
+  const arr = new Array(10).fill(0);
+  for (let v = 0; v <= 9; v++) arr[v] = deck[v] || 0;
+  const N = arr.reduce((a, b) => a + b, 0);
   if (N < 6) return null;
 
-  let ev4 = 0, ev5 = 0, ev6 = 0;
-  let evNatural7 = 0, evThree7 = 0, evCombo = 0;
-  let prob4 = 0, prob5 = 0, prob6 = 0;
-  let probNatural7 = 0, probThree7 = 0, probCombo = 0;
-  let probBanker6Two = 0, evBanker6Two = 0;   // 庄2张6点赢，赔22倍
-  let probBanker6Three = 0, evBanker6Three = 0; // 庄3张6点赢，赔50倍
-  let evBanker6Combo = 0, probBanker6Combo = 0; // 庄6点赢组合（2张×12 + 3张×20）
+  // ── 龙宝投注项（分档单独追踪）──
+  // 闲龙宝各档
+  const pNatural  = makeBet(h => h.winner === 'player' && isNatural(h.pCards), 1);
+  const pWin9     = makeBet(h => h.winner === 'player' && !isNatural(h.pCards) && (h.pTotal - h.bTotal) === 9, 30);
+  const pWin8     = makeBet(h => h.winner === 'player' && !isNatural(h.pCards) && (h.pTotal - h.bTotal) === 8, 10);
+  const pWin7     = makeBet(h => h.winner === 'player' && !isNatural(h.pCards) && (h.pTotal - h.bTotal) === 7, 5);
+  const pWin6     = makeBet(h => h.winner === 'player' && !isNatural(h.pCards) && (h.pTotal - h.bTotal) === 6, 3);
+  const pWin5     = makeBet(h => h.winner === 'player' && !isNatural(h.pCards) && (h.pTotal - h.bTotal) === 5, 2);
+  const pWin4     = makeBet(h => h.winner === 'player' && !isNatural(h.pCards) && (h.pTotal - h.bTotal) === 4, 1);
+  // 庄龙宝各档
+  const bNatural  = makeBet(h => h.winner === 'banker' && isNatural(h.bCards), 1);
+  const bWin9     = makeBet(h => h.winner === 'banker' && !isNatural(h.bCards) && (h.bTotal - h.pTotal) === 9, 30);
+  const bWin8     = makeBet(h => h.winner === 'banker' && !isNatural(h.bCards) && (h.bTotal - h.pTotal) === 8, 10);
+  const bWin7     = makeBet(h => h.winner === 'banker' && !isNatural(h.bCards) && (h.bTotal - h.pTotal) === 7, 5);
+  const bWin6     = makeBet(h => h.winner === 'banker' && !isNatural(h.bCards) && (h.bTotal - h.pTotal) === 6, 3);
+  const bWin5     = makeBet(h => h.winner === 'banker' && !isNatural(h.bCards) && (h.bTotal - h.pTotal) === 5, 2);
+  const bWin4     = makeBet(h => h.winner === 'banker' && !isNatural(h.bCards) && (h.bTotal - h.pTotal) === 4, 1);
 
-  function bankerDraws(bTot, p3) {
-    switch (bTot) {
-      case 0: case 1: case 2: return true;
-      case 3: return p3 !== 8;
-      case 4: return p3 >= 2 && p3 <= 7;
-      case 5: return p3 >= 4 && p3 <= 7;
-      case 6: return p3 === 6 || p3 === 7;
-      default: return false;
-    }
-  }
+  // 定义所有投注项
+  const superSeven = makeMultiTierBet([
+    { condition: h => h.pTotal === 7 && h.bTotal === 6 && h.cardCount === 4, payout: 30 },
+    { condition: h => h.pTotal === 7 && h.bTotal === 6 && h.cardCount === 5, payout: 40 },
+    { condition: h => h.pTotal === 7 && h.bTotal === 6 && h.cardCount === 6, payout: 100 },
+  ]);
+  const natural7    = makeBet(h => h.pCount === 2 && h.pTotal === 7 && h.winner === 'player', 15);
+  const three7      = makeBet(h => h.pCount === 3 && h.pTotal === 7 && h.winner === 'player', 30);
+  const combo7      = makeMultiTierBet([
+    { condition: h => h.pCount === 2 && h.pTotal === 7 && h.winner === 'player', payout: 6 },
+    { condition: h => h.pCount === 3 && h.pTotal === 7 && h.winner === 'player', payout: 15 },
+  ]);
+  const banker6Two   = makeBet(h => h.bCount === 2 && h.bTotal === 6 && h.winner === 'banker', 22);
+  const banker6Three = makeBet(h => h.bCount === 3 && h.bTotal === 6 && h.winner === 'banker', 50);
+  const banker6Combo = makeMultiTierBet([
+    { condition: h => h.bCount === 2 && h.bTotal === 6 && h.winner === 'banker', payout: 12 },
+    { condition: h => h.bCount === 3 && h.bTotal === 6 && h.winner === 'banker', payout: 20 },
+  ]);
 
-  // 精确枚举发牌顺序：P1, B1, P2, B2, [P3], [B3]
-  // d 数组随枚举实时增减，每层循环末尾还原
-  for (let p1 = 0; p1 <= 9; p1++) {
-    if (!d[p1]) continue;
-    const w1 = d[p1] / N; d[p1]--;
+  enumerate(arr, [superSeven, natural7, three7, combo7, banker6Two, banker6Three, banker6Combo,
+    pNatural, pWin9, pWin8, pWin7, pWin6, pWin5, pWin4,
+    bNatural, bWin9, bWin8, bWin7, bWin6, bWin5, bWin4]);
 
-    for (let b1 = 0; b1 <= 9; b1++) {
-      if (!d[b1]) continue;
-      const w2 = w1 * d[b1] / (N-1); d[b1]--;
-
-      for (let p2 = 0; p2 <= 9; p2++) {
-        if (!d[p2]) continue;
-        const w3 = w2 * d[p2] / (N-2); d[p2]--;
-
-        for (let b2 = 0; b2 <= 9; b2++) {
-          if (!d[b2]) continue;
-          const w4 = w3 * d[b2] / (N-3); d[b2]--;
-
-          const pT = (p1 + p2) % 10;
-          const bT = (b1 + b2) % 10;
-
-          if (pT >= 8 || bT >= 8) {
-            // 天牌，4张结局
-            if (pT === 7 && bT === 6) { prob4 += w4; ev4 += w4 * 30; }
-            if (pT === 7 && pT > bT)  { probNatural7 += w4; evNatural7 += w4 * 15; probCombo += w4; evCombo += w4 * 6; }
-            // 庄2张6点赢（天牌时庄闲都是2张）
-            if (bT === 6 && bT > pT)  { probBanker6Two += w4; evBanker6Two += w4 * 22; probBanker6Combo += w4; evBanker6Combo += w4 * 12; }
-          } else if (pT >= 6) {
-            // 闲站
-            if (bT <= 5) {
-              // 庄补一张，5张结局
-              for (let b3 = 0; b3 <= 9; b3++) {
-                if (!d[b3]) continue;
-                const w5 = w4 * d[b3] / (N-4);
-                const bT3 = (bT + b3) % 10;
-                if (pT === 7 && bT3 === 6) { prob5 += w5; ev5 += w5 * 40; }
-                if (pT === 7 && pT > bT3)  { probNatural7 += w5; evNatural7 += w5 * 15; probCombo += w5; evCombo += w5 * 6; }
-                // 庄3张6点赢（闲2张站，庄3张）
-                if (bT3 === 6 && bT3 > pT) { probBanker6Three += w5; evBanker6Three += w5 * 50; probBanker6Combo += w5; evBanker6Combo += w5 * 20; }
-              }
-            } else {
-              // 庄站，4张结局（pT=6或7，bT=6或7）
-              if (pT === 7 && bT === 6) { prob4 += w4; ev4 += w4 * 30; }
-              if (pT === 7 && pT > bT)  { probNatural7 += w4; evNatural7 += w4 * 15; probCombo += w4; evCombo += w4 * 6; }
-              // 庄2张6点赢
-              if (bT === 6 && bT > pT)  { probBanker6Two += w4; evBanker6Two += w4 * 22; probBanker6Combo += w4; evBanker6Combo += w4 * 12; }
-            }
-          } else {
-            // 闲补第三张
-            for (let p3 = 0; p3 <= 9; p3++) {
-              if (!d[p3]) continue;
-              const w5 = w4 * d[p3] / (N-4); d[p3]--;
-              const pT3 = (pT + p3) % 10;
-
-              if (bankerDraws(bT, p3)) {
-                // 庄补第三张，6张结局
-                for (let b3 = 0; b3 <= 9; b3++) {
-                  if (!d[b3]) continue;
-                  const w6 = w5 * d[b3] / (N-5);
-                  const bT3 = (bT + b3) % 10;
-                  if (pT3 === 7 && bT3 === 6) { prob6 += w6; ev6 += w6 * 100; }
-                  if (pT3 === 7 && pT3 > bT3) { probThree7 += w6; evThree7 += w6 * 30; probCombo += w6; evCombo += w6 * 15; }
-                  // 庄3张6点赢
-                  if (bT3 === 6 && bT3 > pT3) { probBanker6Three += w6; evBanker6Three += w6 * 50; probBanker6Combo += w6; evBanker6Combo += w6 * 20; }
-                }
-              } else {
-                // 庄站，5张结局（闲3张，庄2张）
-                if (pT3 === 7 && bT === 6) { prob5 += w5; ev5 += w5 * 40; }
-                if (pT3 === 7 && pT3 > bT)  { probThree7 += w5; evThree7 += w5 * 30; probCombo += w5; evCombo += w5 * 15; }
-                // 庄2张6点赢
-                if (bT === 6 && bT > pT3)   { probBanker6Two += w5; evBanker6Two += w5 * 22; probBanker6Combo += w5; evBanker6Combo += w5 * 12; }
-              }
-
-              d[p3]++;
-            }
-          }
-
-          d[b2]++;
-        }
-        d[p2]++;
-      }
-      d[b1]++;
-    }
-    d[p1]++;
-  }
-
+  const s7 = superSeven.result();
   return {
-    prob: prob4 + prob5 + prob6,
-    prob4, prob5, prob6,
-    ev: ev4 + ev5 + ev6,
-    probNatural7, evNatural7,
-    probThree7, evThree7,
-    probCombo, evCombo,
-    probBanker6Two, evBanker6Two,
-    probBanker6Three, evBanker6Three,
-    probBanker6Combo, evBanker6Combo,
+    prob:  s7.prob,
+    ev:    s7.ev,
+    probNatural7:   natural7.result().prob,
+    evNatural7:     natural7.result().ev,
+    probThree7:     three7.result().prob,
+    evThree7:       three7.result().ev,
+    probCombo:      combo7.result().prob,
+    evCombo:        combo7.result().ev,
+    probBanker6Two:   banker6Two.result().prob,
+    evBanker6Two:     banker6Two.result().ev,
+    probBanker6Three: banker6Three.result().prob,
+    evBanker6Three:   banker6Three.result().ev,
+    probBanker6Combo: banker6Combo.result().prob,
+    evBanker6Combo:   banker6Combo.result().ev,
+    // 龙宝（分档明细）
+    dragon: {
+      player: {
+        natural: pNatural.result(),
+        win9: pWin9.result(), win8: pWin8.result(), win7: pWin7.result(),
+        win6: pWin6.result(), win5: pWin5.result(), win4: pWin4.result(),
+      },
+      banker: {
+        natural: bNatural.result(),
+        win9: bWin9.result(), win8: bWin8.result(), win7: bWin7.result(),
+        win6: bWin6.result(), win5: bWin5.result(), win4: bWin4.result(),
+      },
+    },
     remaining: N,
   };
 }
 
-// ── HTTP 服务器 ────────────────────────────────────────────
+// 计算龙宝期望（仅闲/庄）
+function calcDragonEV(deck) {
+  const arr = new Array(10).fill(0);
+  for (let v = 0; v <= 9; v++) arr[v] = deck[v] || 0;
+  const N = arr.reduce((a, b) => a + b, 0);
+  if (N < 6) return null;
+
+  const pNatural = makeBet(h => h.winner === 'player' && isNatural(h.pCards), 1);
+  const pWin9    = makeBet(h => h.winner === 'player' && !isNatural(h.pCards) && (h.pTotal - h.bTotal) === 9, 30);
+  const pWin8    = makeBet(h => h.winner === 'player' && !isNatural(h.pCards) && (h.pTotal - h.bTotal) === 8, 10);
+  const pWin7    = makeBet(h => h.winner === 'player' && !isNatural(h.pCards) && (h.pTotal - h.bTotal) === 7, 5);
+  const pWin6    = makeBet(h => h.winner === 'player' && !isNatural(h.pCards) && (h.pTotal - h.bTotal) === 6, 3);
+  const pWin5    = makeBet(h => h.winner === 'player' && !isNatural(h.pCards) && (h.pTotal - h.bTotal) === 5, 2);
+  const pWin4    = makeBet(h => h.winner === 'player' && !isNatural(h.pCards) && (h.pTotal - h.bTotal) === 4, 1);
+  const bNatural = makeBet(h => h.winner === 'banker' && isNatural(h.bCards), 1);
+  const bWin9    = makeBet(h => h.winner === 'banker' && !isNatural(h.bCards) && (h.bTotal - h.pTotal) === 9, 30);
+  const bWin8    = makeBet(h => h.winner === 'banker' && !isNatural(h.bCards) && (h.bTotal - h.pTotal) === 8, 10);
+  const bWin7    = makeBet(h => h.winner === 'banker' && !isNatural(h.bCards) && (h.bTotal - h.pTotal) === 7, 5);
+  const bWin6    = makeBet(h => h.winner === 'banker' && !isNatural(h.bCards) && (h.bTotal - h.pTotal) === 6, 3);
+  const bWin5    = makeBet(h => h.winner === 'banker' && !isNatural(h.bCards) && (h.bTotal - h.pTotal) === 5, 2);
+  const bWin4    = makeBet(h => h.winner === 'banker' && !isNatural(h.bCards) && (h.bTotal - h.pTotal) === 4, 1);
+
+  enumerate(arr, [pNatural, pWin9, pWin8, pWin7, pWin6, pWin5, pWin4,
+                  bNatural, bWin9, bWin8, bWin7, bWin6, bWin5, bWin4]);
+
+  function net(bets) {
+    let ev = 0, prob = 0;
+    for (const b of bets) { const r = b.result(); ev += r.ev; prob += r.prob; }
+    return ev - (1 - prob);
+  }
+  return {
+    player: net([pNatural, pWin9, pWin8, pWin7, pWin6, pWin5, pWin4]),
+    banker: net([bNatural, bWin9, bWin8, bWin7, bWin6, bWin5, bWin4]),
+  };
+}
+
+// 计算每张牌（0-9）移除一张后对龙宝EV的影响（单位：1，即实际差值）
+function calcCardImpact(deck) {
+  const base = calcDragonEV(deck);
+  if (!base) return null;
+  const impact = [];
+  for (let v = 0; v <= 9; v++) {
+    if (!deck[v]) {
+      impact.push({ v, player: null, banker: null });
+      continue;
+    }
+    const d2 = Object.assign({}, deck);
+    d2[v]--;
+    const ev2 = calcDragonEV(d2);
+    if (!ev2) {
+      impact.push({ v, player: null, banker: null });
+    } else {
+      impact.push({
+        v,
+        player: ev2.player - base.player,
+        banker: ev2.banker - base.banker,
+      });
+    }
+  }
+  return impact;
+}
+
+// 计算超级幸运7净期望（闲=7且庄=6，按总张数分档 4张×30 5张×40 6张×100）
+function calcSuperSevenEV2(arr) {
+  const N = arr.reduce((a, b) => a + b, 0);
+  if (N < 6) return null;
+  const s7 = makeMultiTierBet([
+    { condition: h => h.pTotal === 7 && h.bTotal === 6 && h.cardCount === 4, payout: 30 },
+    { condition: h => h.pTotal === 7 && h.bTotal === 6 && h.cardCount === 5, payout: 40 },
+    { condition: h => h.pTotal === 7 && h.bTotal === 6 && h.cardCount === 6, payout: 100 },
+  ]);
+  enumerate(arr, [s7]);
+  const r = s7.result();
+  return r.ev - (1 - r.prob);
+}
+
+// 计算移除1张牌后对超级幸运7 EV的影响
+function calcSuperSevenImpact(deck) {
+  const arr0 = new Array(10).fill(0);
+  for (let v = 0; v <= 9; v++) arr0[v] = deck[v] || 0;
+  const N = arr0.reduce((a, b) => a + b, 0);
+  if (N < 6) return null;
+
+  const base = calcSuperSevenEV2(arr0);
+  const impact = [];
+  for (let v = 0; v <= 9; v++) {
+    if (!arr0[v]) {
+      impact.push({ v, delta: null });
+      continue;
+    }
+    const arr2 = arr0.slice();
+    arr2[v]--;
+    const ev2 = calcSuperSevenEV2(arr2);
+    impact.push({ v, delta: ev2 !== null ? ev2 - base : null });
+  }
+  return impact;
+}
+
+// 计算移除1张牌后对两张/三张幸运6 EV的影响
+function calcLucky6Impact(deck) {
+  // 基准期望
+  const arr0 = new Array(10).fill(0);
+  for (let v = 0; v <= 9; v++) arr0[v] = deck[v] || 0;
+  const N = arr0.reduce((a, b) => a + b, 0);
+  if (N < 6) return null;
+
+  function calcEVs(arr) {
+    const l6two   = makeBet(h => h.bCount === 2 && h.bTotal === 6 && h.winner === 'banker', 22);
+    const l6three = makeBet(h => h.bCount === 3 && h.bTotal === 6 && h.winner === 'banker', 50);
+    enumerate(arr, [l6two, l6three]);
+    const r2 = l6two.result(), r3 = l6three.result();
+    return {
+      two:   r2.ev - (1 - r2.prob),
+      three: r3.ev - (1 - r3.prob),
+    };
+  }
+
+  const base = calcEVs(arr0);
+  const impact = [];
+  for (let v = 0; v <= 9; v++) {
+    if (!arr0[v]) {
+      impact.push({ v, two: null, three: null });
+      continue;
+    }
+    const arr2 = arr0.slice();
+    arr2[v]--;
+    const ev2 = calcEVs(arr2);
+    impact.push({
+      v,
+      two:   ev2.two   - base.two,
+      three: ev2.three - base.three,
+    });
+  }
+  return impact;
+}
+
+// 从 deck 对象快速计算四项净期望（复用 calculateProbability）
+function calcNetEVs(deck) {
+  const result = calculateProbability(deck);
+  if (!result) return null;
+  const keys = ['natural','win9','win8','win7','win6','win5','win4'];
+  function dragonNet(side) {
+    let ev = 0, prob = 0;
+    for (const k of keys) { ev += side[k].ev; prob += side[k].prob; }
+    return ev - (1 - prob);
+  }
+  return {
+    playerDragon: dragonNet(result.dragon.player),
+    bankerDragon: dragonNet(result.dragon.banker),
+    superSeven:   result.ev - (1 - result.prob),
+    lucky6:       result.evBanker6Combo - (1 - result.probBanker6Combo),
+  };
+}
+
+// 随机模拟发牌 N 局，逐局记录期望值，返回剩余牌靴 + 逐局EV + 可下注统计
+function simulateDealing(hands) {
+  // 构建完整牌靴数组（每张牌展开为独立元素）
+  const shoe = [];
+  for (let v = 0; v <= 9; v++) {
+    const cnt = v === 0 ? 128 : 32;
+    for (let i = 0; i < cnt; i++) shoe.push(v);
+  }
+  // Fisher-Yates 洗牌
+  for (let i = shoe.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shoe[i], shoe[j]] = [shoe[j], shoe[i]];
+  }
+
+  let pos = 0;
+  function draw() { return shoe[pos++]; }
+  function remaining() { return shoe.length - pos; }
+
+  // 统计可下注局数（庄家优势 < 0.5%，即净期望 > -0.005）
+  const THRESHOLD = -0.005;
+  const bettable = { playerDragon: 0, bankerDragon: 0, superSeven: 0, lucky6: 0 };
+  let actualHands = 0;
+
+  for (let h = 0; h < hands; h++) {
+    if (remaining() < 6) break;
+    actualHands++;
+
+    // 发一局牌
+    const p1 = draw(), b1 = draw(), p2 = draw(), b2 = draw();
+    const pT = (p1 + p2) % 10;
+    const bT = (b1 + b2) % 10;
+
+    let p3 = null;
+    if (pT < 8 && bT < 8) { // 非天牌才可能补牌
+      if (pT <= 5) {
+        if (remaining() < 1) break;
+        p3 = draw();
+      }
+      let bankerDraw = false;
+      if (p3 === null) {
+        bankerDraw = bT <= 5;
+      } else {
+        switch (bT) {
+          case 0: case 1: case 2: bankerDraw = true; break;
+          case 3: bankerDraw = p3 !== 8; break;
+          case 4: bankerDraw = p3 >= 2 && p3 <= 7; break;
+          case 5: bankerDraw = p3 >= 4 && p3 <= 7; break;
+          case 6: bankerDraw = p3 === 6 || p3 === 7; break;
+          case 7: bankerDraw = false; break;
+        }
+      }
+      if (bankerDraw) {
+        if (remaining() < 1) break;
+        draw();
+      }
+    }
+
+    // 每局发完后计算剩余牌靴的期望值
+    const deck = {};
+    for (let v = 0; v <= 9; v++) deck[v] = 0;
+    for (let i = pos; i < shoe.length; i++) deck[shoe[i]]++;
+
+    const evs = calcNetEVs(deck);
+    if (evs) {
+      if (evs.playerDragon > THRESHOLD) bettable.playerDragon++;
+      if (evs.bankerDragon > THRESHOLD) bettable.bankerDragon++;
+      if (evs.superSeven   > THRESHOLD) bettable.superSeven++;
+      if (evs.lucky6       > THRESHOLD) bettable.lucky6++;
+    }
+  }
+
+  // 最终剩余牌靴
+  const deck = {};
+  for (let v = 0; v <= 9; v++) deck[v] = 0;
+  for (let i = pos; i < shoe.length; i++) deck[shoe[i]]++;
+  return { deck, bettable, actualHands };
+}
+
+// 只计算超级幸运7净期望（3个collector，比calcNetEVs快约7倍）
+function calcSuperSevenEV(arr) {
+  const N = arr.reduce((a, b) => a + b, 0);
+  if (N < 6) return null;
+  const s7 = makeMultiTierBet([
+    { condition: h => h.pTotal === 7 && h.bTotal === 6 && h.cardCount === 4, payout: 30 },
+    { condition: h => h.pTotal === 7 && h.bTotal === 6 && h.cardCount === 5, payout: 40 },
+    { condition: h => h.pTotal === 7 && h.bTotal === 6 && h.cardCount === 6, payout: 100 },
+  ]);
+  enumerate(arr, [s7]);
+  const r = s7.result();
+  return r.ev - (1 - r.prob);
+}
+
+// 随机模拟发牌，仅统计超级幸运7可下注局数
+function simulateSuperSeven(hands) {
+  const shoe = [];
+  for (let v = 0; v <= 9; v++) {
+    const cnt = v === 0 ? 128 : 32;
+    for (let i = 0; i < cnt; i++) shoe.push(v);
+  }
+  for (let i = shoe.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shoe[i], shoe[j]] = [shoe[j], shoe[i]];
+  }
+
+  let pos = 0;
+  function draw() { return shoe[pos++]; }
+  function remaining() { return shoe.length - pos; }
+
+  const THRESHOLD = -0.005;
+  const S7_PAYOUTS = { 4: 30, 5: 40, 6: 100 };
+  let bettable = 0;
+  let actualHands = 0;
+  const bettableHands = []; // 记录每个可下注局：{ hand, edge, nextResult }
+  let pendingBet = null; // 上局发完后判为可下注，等本局结果
+
+  for (let h = 0; h < hands; h++) {
+    if (remaining() < 6) break;
+    actualHands++;
+
+    const p1 = draw(), b1 = draw(), p2 = draw(), b2 = draw();
+    const pT = (p1 + p2) % 10;
+    const bT = (b1 + b2) % 10;
+
+    let p3 = null, b3 = null;
+    let cardCount = 4;
+    if (pT < 8 && bT < 8) {
+      if (pT <= 5) {
+        if (remaining() < 1) break;
+        p3 = draw();
+        cardCount++;
+      }
+      let bankerDraw = false;
+      if (p3 === null) {
+        bankerDraw = bT <= 5;
+      } else {
+        switch (bT) {
+          case 0: case 1: case 2: bankerDraw = true; break;
+          case 3: bankerDraw = p3 !== 8; break;
+          case 4: bankerDraw = p3 >= 2 && p3 <= 7; break;
+          case 5: bankerDraw = p3 >= 4 && p3 <= 7; break;
+          case 6: bankerDraw = p3 === 6 || p3 === 7; break;
+          case 7: bankerDraw = false; break;
+        }
+      }
+      if (bankerDraw) {
+        if (remaining() < 1) break;
+        b3 = draw();
+        cardCount++;
+      }
+    }
+
+    // 若上局判为可下注，记录本局实际结果（闲=7且庄=6才中出）
+    if (pendingBet !== null) {
+      const finalPT = p3 !== null ? (p1 + p2 + p3) % 10 : pT;
+      const finalBT = b3 !== null ? (b1 + b2 + b3) % 10 : bT;
+      const hit = finalPT === 7 && finalBT === 6;
+      const payout = hit ? (S7_PAYOUTS[cardCount] || 0) : 0;
+      pendingBet.nextResult = { hit, payout, cardCount: hit ? cardCount : null };
+      bettableHands.push(pendingBet);
+      pendingBet = null;
+    }
+
+    // 枚举剩余牌靴，判断下一局是否值得下注（剩余<104张时牌靴过薄，跳过）
+    const arr = new Array(10).fill(0);
+    for (let i = pos; i < shoe.length; i++) arr[shoe[i]]++;
+    if (remaining() >= 104) {
+      const ev = calcSuperSevenEV(arr);
+      if (ev !== null && ev > THRESHOLD) {
+        bettable++;
+        pendingBet = { hand: actualHands, edge: parseFloat((-ev * 100).toFixed(4)) };
+      }
+    }
+  }
+
+  // 最后一局判为可下注但牌靴已结束
+  if (pendingBet !== null) {
+    pendingBet.nextResult = { hit: false, payout: 0, cardCount: null, noNextHand: true };
+    bettableHands.push(pendingBet);
+    pendingBet = null;
+  }
+  const deck = {};
+  for (let v = 0; v <= 9; v++) deck[v] = 0;
+  for (let i = pos; i < shoe.length; i++) deck[shoe[i]]++;
+
+  // 最终牌靴的超级幸运7完整结果（用于前端展示EV/概率）
+  const finalArr = new Array(10).fill(0);
+  for (let v = 0; v <= 9; v++) finalArr[v] = deck[v];
+  const s7Final = makeMultiTierBet([
+    { condition: h => h.pTotal === 7 && h.bTotal === 6 && h.cardCount === 4, payout: 30 },
+    { condition: h => h.pTotal === 7 && h.bTotal === 6 && h.cardCount === 5, payout: 40 },
+    { condition: h => h.pTotal === 7 && h.bTotal === 6 && h.cardCount === 6, payout: 100 },
+  ]);
+  enumerate(finalArr, [s7Final]);
+  const finalR = s7Final.result();
+
+  return { deck, bettable, actualHands, bettableHands, prob: finalR.prob, ev: finalR.ev };
+}
+
+// 只计算幸运6三张牌净期望（1个collector）
+function calcLucky6ThreeEV(arr) {
+  const N = arr.reduce((a, b) => a + b, 0);
+  if (N < 6) return null;
+  const l6 = makeBet(h => h.bCount === 3 && h.bTotal === 6 && h.winner === 'banker', 50);
+  enumerate(arr, [l6]);
+  const r = l6.result();
+  return r.ev - (1 - r.prob);
+}
+
+// 随机模拟发牌，仅统计幸运6三张牌可下注局数
+function simulateLucky6Three(hands) {
+  const shoe = [];
+  for (let v = 0; v <= 9; v++) {
+    const cnt = v === 0 ? 128 : 32;
+    for (let i = 0; i < cnt; i++) shoe.push(v);
+  }
+  for (let i = shoe.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shoe[i], shoe[j]] = [shoe[j], shoe[i]];
+  }
+
+  let pos = 0;
+  function draw() { return shoe[pos++]; }
+  function remaining() { return shoe.length - pos; }
+
+  const THRESHOLD = -0.005;
+  let bettable = 0;
+  let actualHands = 0;
+  const bettableHands = [];
+  let pendingBet = null;
+
+  for (let h = 0; h < hands; h++) {
+    if (remaining() < 6) break;
+    actualHands++;
+
+    const p1 = draw(), b1 = draw(), p2 = draw(), b2 = draw();
+    const pT = (p1 + p2) % 10;
+    const bT = (b1 + b2) % 10;
+
+    let p3 = null, b3 = null;
+    let bCount = 2;
+    if (pT < 8 && bT < 8) {
+      if (pT <= 5) {
+        if (remaining() < 1) break;
+        p3 = draw();
+      }
+      let bankerDraw = false;
+      if (p3 === null) {
+        bankerDraw = bT <= 5;
+      } else {
+        switch (bT) {
+          case 0: case 1: case 2: bankerDraw = true; break;
+          case 3: bankerDraw = p3 !== 8; break;
+          case 4: bankerDraw = p3 >= 2 && p3 <= 7; break;
+          case 5: bankerDraw = p3 >= 4 && p3 <= 7; break;
+          case 6: bankerDraw = p3 === 6 || p3 === 7; break;
+          case 7: bankerDraw = false; break;
+        }
+      }
+      if (bankerDraw) {
+        if (remaining() < 1) break;
+        b3 = draw();
+        bCount = 3;
+      }
+    }
+
+    // 若上局判为可下注，记录本局实际结果（庄3张=6且庄赢才中出）
+    if (pendingBet !== null) {
+      const finalBT = b3 !== null ? (b1 + b2 + b3) % 10 : bT;
+      const finalPT = p3 !== null ? (p1 + p2 + p3) % 10 : pT;
+      const hit = bCount === 3 && finalBT === 6 && finalBT > finalPT;
+      pendingBet.nextResult = { hit, payout: hit ? 50 : 0 };
+      bettableHands.push(pendingBet);
+      pendingBet = null;
+    }
+
+    // 枚举剩余牌靴，判断下一局是否值得下注（剩余<104张时牌靴过薄，跳过）
+    const arr = new Array(10).fill(0);
+    for (let i = pos; i < shoe.length; i++) arr[shoe[i]]++;
+    if (remaining() >= 104) {
+      const ev = calcLucky6ThreeEV(arr);
+      if (ev !== null && ev > THRESHOLD) {
+        bettable++;
+        pendingBet = { hand: actualHands, edge: parseFloat((-ev * 100).toFixed(4)) };
+      }
+    }
+  }
+
+  if (pendingBet !== null) {
+    pendingBet.nextResult = { hit: false, payout: 0, noNextHand: true };
+    bettableHands.push(pendingBet);
+    pendingBet = null;
+  }
+
+  const deck = {};
+  for (let v = 0; v <= 9; v++) deck[v] = 0;
+  for (let i = pos; i < shoe.length; i++) deck[shoe[i]]++;
+
+  const finalArr = new Array(10).fill(0);
+  for (let v = 0; v <= 9; v++) finalArr[v] = deck[v];
+  const l6Final = makeBet(h => h.bCount === 3 && h.bTotal === 6 && h.winner === 'banker', 50);
+  enumerate(finalArr, [l6Final]);
+  const finalR = l6Final.result();
+
+  return { deck, bettable, actualHands, bettableHands, prob: finalR.prob, ev: finalR.ev };
+}
+
+
+// 计算两张幸运6期望（庄2张=6且庄赢，赔×22）
+function calcLucky6TwoEV(arr) {
+  const N = arr.reduce((a, b) => a + b, 0);
+  if (N < 6) return null;
+  const l6 = makeBet(h => h.bCount === 2 && h.bTotal === 6 && h.winner === 'banker', 22);
+  enumerate(arr, [l6]);
+  const r = l6.result();
+  return r.ev - (1 - r.prob);
+}
+
+// 随机模拟发牌，仅统计两张幸运6可下注局数
+function simulateLucky6Two(hands) {
+  const shoe = [];
+  for (let v = 0; v <= 9; v++) {
+    const cnt = v === 0 ? 128 : 32;
+    for (let i = 0; i < cnt; i++) shoe.push(v);
+  }
+  for (let i = shoe.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shoe[i], shoe[j]] = [shoe[j], shoe[i]];
+  }
+
+  let pos = 0;
+  function draw() { return shoe[pos++]; }
+  function remaining() { return shoe.length - pos; }
+
+  const THRESHOLD = -0.005;
+  let bettable = 0;
+  let actualHands = 0;
+  const bettableHands = [];
+  let pendingBet = null;
+
+  for (let h = 0; h < hands; h++) {
+    if (remaining() < 6) break;
+    actualHands++;
+
+    const p1 = draw(), b1 = draw(), p2 = draw(), b2 = draw();
+    const pT = (p1 + p2) % 10;
+    const bT = (b1 + b2) % 10;
+
+    let p3 = null, b3 = null;
+    let bCount = 2;
+    if (pT < 8 && bT < 8) {
+      if (pT <= 5) {
+        if (remaining() < 1) break;
+        p3 = draw();
+      }
+      let bankerDraw = false;
+      if (p3 === null) {
+        bankerDraw = bT <= 5;
+      } else {
+        switch (bT) {
+          case 0: case 1: case 2: bankerDraw = true; break;
+          case 3: bankerDraw = p3 !== 8; break;
+          case 4: bankerDraw = p3 >= 2 && p3 <= 7; break;
+          case 5: bankerDraw = p3 >= 4 && p3 <= 7; break;
+          case 6: bankerDraw = p3 === 6 || p3 === 7; break;
+          case 7: bankerDraw = false; break;
+        }
+      }
+      if (bankerDraw) {
+        if (remaining() < 1) break;
+        b3 = draw();
+        bCount = 3;
+      }
+    }
+
+    // 若上局判为可下注，记录本局实际结果（庄2张=6且庄赢才中出）
+    if (pendingBet !== null) {
+      const finalBT = b3 !== null ? (b1 + b2 + b3) % 10 : bT;
+      const finalPT = p3 !== null ? (p1 + p2 + p3) % 10 : pT;
+      const hit = bCount === 2 && finalBT === 6 && finalBT > finalPT;
+      pendingBet.nextResult = { hit, payout: hit ? 22 : 0 };
+      bettableHands.push(pendingBet);
+      pendingBet = null;
+    }
+
+    // 枚举剩余牌靴，判断下一局是否值得下注（剩余<104张时牌靴过薄，跳过）
+    const arr = new Array(10).fill(0);
+    for (let i = pos; i < shoe.length; i++) arr[shoe[i]]++;
+    if (remaining() >= 104) {
+      const ev = calcLucky6TwoEV(arr);
+      if (ev !== null && ev > THRESHOLD) {
+        bettable++;
+        pendingBet = { hand: actualHands, edge: parseFloat((-ev * 100).toFixed(4)) };
+      }
+    }
+  }
+
+  if (pendingBet !== null) {
+    pendingBet.nextResult = { hit: false, payout: 0, noNextHand: true };
+    bettableHands.push(pendingBet);
+    pendingBet = null;
+  }
+
+  const deck = {};
+  for (let v = 0; v <= 9; v++) deck[v] = 0;
+  for (let i = pos; i < shoe.length; i++) deck[shoe[i]]++;
+
+  const finalArr = new Array(10).fill(0);
+  for (let v = 0; v <= 9; v++) finalArr[v] = deck[v];
+  const l6Final = makeBet(h => h.bCount === 2 && h.bTotal === 6 && h.winner === 'banker', 22);
+  enumerate(finalArr, [l6Final]);
+  const finalR = l6Final.result();
+
+  return { deck, bettable, actualHands, bettableHands, prob: finalR.prob, ev: finalR.ev };
+}
+
+// 随机模拟发牌，同时统计闲龙宝和庄龙宝可下注局数
+function simulateDragonBonus(hands) {
+  const shoe = [];
+  for (let v = 0; v <= 9; v++) {
+    const cnt = v === 0 ? 128 : 32;
+    for (let i = 0; i < cnt; i++) shoe.push(v);
+  }
+  for (let i = shoe.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shoe[i], shoe[j]] = [shoe[j], shoe[i]];
+  }
+
+  let pos = 0;
+  function draw() { return shoe[pos++]; }
+  function remaining() { return shoe.length - pos; }
+
+  const THRESHOLD = -0.005;
+  let bettablePlayer = 0, bettableBanker = 0;
+  let actualHands = 0;
+  const bettableHandsPlayer = [];
+  const bettableHandsBanker = [];
+  let pendingPlayer = null, pendingBanker = null;
+
+  for (let h = 0; h < hands; h++) {
+    if (remaining() < 6) break;
+    actualHands++;
+
+    const p1 = draw(), b1 = draw(), p2 = draw(), b2 = draw();
+    const pT = (p1 + p2) % 10;
+    const bT = (b1 + b2) % 10;
+
+    let p3 = null, b3 = null;
+    if (pT < 8 && bT < 8) {
+      if (pT <= 5) {
+        if (remaining() < 1) break;
+        p3 = draw();
+      }
+      let bankerDraw = false;
+      if (p3 === null) {
+        bankerDraw = bT <= 5;
+      } else {
+        switch (bT) {
+          case 0: case 1: case 2: bankerDraw = true; break;
+          case 3: bankerDraw = p3 !== 8; break;
+          case 4: bankerDraw = p3 >= 2 && p3 <= 7; break;
+          case 5: bankerDraw = p3 >= 4 && p3 <= 7; break;
+          case 6: bankerDraw = p3 === 6 || p3 === 7; break;
+          case 7: bankerDraw = false; break;
+        }
+      }
+      if (bankerDraw) {
+        if (remaining() < 1) break;
+        b3 = draw();
+      }
+    }
+
+    const finalPT = p3 !== null ? (p1 + p2 + p3) % 10 : pT;
+    const finalBT = b3 !== null ? (b1 + b2 + b3) % 10 : bT;
+    const pCards = p3 !== null ? [p1, p2, p3] : [p1, p2];
+    const bCards = b3 !== null ? [b1, b2, b3] : [b1, b2];
+    const naturalP = (p1 + p2) % 10 >= 8;
+    const naturalB = (b1 + b2) % 10 >= 8;
+    const winner = finalPT > finalBT ? 'player' : finalBT > finalPT ? 'banker' : 'tie';
+
+    // 记录上一局下注结果 — 闲龙宝
+    if (pendingPlayer !== null) {
+      let hit = false, payout = 0;
+      if (winner === 'player') {
+        if (naturalP) { hit = true; payout = 1; }
+        else {
+          const diff = finalPT - finalBT;
+          if (diff === 9) { hit = true; payout = 30; }
+          else if (diff === 8) { hit = true; payout = 10; }
+          else if (diff === 7) { hit = true; payout = 5; }
+          else if (diff === 6) { hit = true; payout = 3; }
+          else if (diff === 5) { hit = true; payout = 2; }
+          else if (diff === 4) { hit = true; payout = 1; }
+        }
+      }
+      pendingPlayer.nextResult = { hit, payout, cardCount: pCards.length + bCards.length };
+      bettableHandsPlayer.push(pendingPlayer);
+      pendingPlayer = null;
+    }
+
+    // 记录上一局下注结果 — 庄龙宝
+    if (pendingBanker !== null) {
+      let hit = false, payout = 0;
+      if (winner === 'banker') {
+        if (naturalB) { hit = true; payout = 1; }
+        else {
+          const diff = finalBT - finalPT;
+          if (diff === 9) { hit = true; payout = 30; }
+          else if (diff === 8) { hit = true; payout = 10; }
+          else if (diff === 7) { hit = true; payout = 5; }
+          else if (diff === 6) { hit = true; payout = 3; }
+          else if (diff === 5) { hit = true; payout = 2; }
+          else if (diff === 4) { hit = true; payout = 1; }
+        }
+      }
+      pendingBanker.nextResult = { hit, payout, cardCount: pCards.length + bCards.length };
+      bettableHandsBanker.push(pendingBanker);
+      pendingBanker = null;
+    }
+
+    // 枚举剩余牌靴，计算下一局龙宝EV（剩余<104张时牌靴过薄，跳过）
+    const arr = new Array(10).fill(0);
+    for (let i = pos; i < shoe.length; i++) arr[shoe[i]]++;
+    if (remaining() >= 104) {
+      const dragonEV = calcDragonEV({ ...arr });
+      if (dragonEV) {
+        if (dragonEV.player > THRESHOLD) {
+          bettablePlayer++;
+          pendingPlayer = { hand: actualHands, edge: parseFloat((-dragonEV.player * 100).toFixed(4)) };
+        }
+        if (dragonEV.banker > THRESHOLD) {
+          bettableBanker++;
+          pendingBanker = { hand: actualHands, edge: parseFloat((-dragonEV.banker * 100).toFixed(4)) };
+        }
+      }
+    }
+  }
+
+  if (pendingPlayer !== null) {
+    pendingPlayer.nextResult = { hit: false, payout: 0, noNextHand: true };
+    bettableHandsPlayer.push(pendingPlayer);
+    pendingPlayer = null;
+  }
+  if (pendingBanker !== null) {
+    pendingBanker.nextResult = { hit: false, payout: 0, noNextHand: true };
+    bettableHandsBanker.push(pendingBanker);
+    pendingBanker = null;
+  }
+
+  const deck = {};
+  for (let v = 0; v <= 9; v++) deck[v] = 0;
+  for (let i = pos; i < shoe.length; i++) deck[shoe[i]]++;
+
+  // 最终剩余牌靴的龙宝期望（用于EV摘要展示）
+  const finalEV = calcDragonEV(deck) || { player: null, banker: null };
+
+  return {
+    deck, actualHands,
+    bettablePlayer, bettableBanker,
+    bettableHandsPlayer, bettableHandsBanker,
+    playerEV: finalEV.player,
+    bankerEV: finalEV.banker,
+  };
+}
+
 const PORT = 3777;
 
 // 启动时预计算新牌靴结果（固定值，避免每次重置重新随机）
@@ -270,6 +946,68 @@ const server = http.createServer(async (req, res) => {
       remaining: totalCards(session.deck),
       historyCount: session.history.length,
     }, id);
+  }
+
+  // GET /api/dragon-impact
+  if (req.method === 'GET' && req.url === '/api/dragon-impact') {
+    const { id, session } = getOrCreateSession(sid);
+    const impact = calcCardImpact(session.deck);
+    return respond(res, 200, { impact }, id);
+  }
+
+  // GET /api/lucky6-impact  移除1张牌后对两张/三张幸运6 EV的影响
+  if (req.method === 'GET' && req.url === '/api/lucky6-impact') {
+    const { id, session } = getOrCreateSession(sid);
+    const impact = calcLucky6Impact(session.deck);
+    return respond(res, 200, { impact }, id);
+  }
+
+  // GET /api/s7-impact  移除1张牌后对超级幸运7 EV的影响
+  if (req.method === 'GET' && req.url === '/api/s7-impact') {
+    const { id, session } = getOrCreateSession(sid);
+    const impact = calcSuperSevenImpact(session.deck);
+    return respond(res, 200, { impact }, id);
+  }
+
+  // POST /api/simulate  { hands: N }
+  if (req.method === 'POST' && req.url === '/api/simulate') {
+    const body = await parseBody(req);
+    const hands = Math.max(1, Math.min(10000, parseInt(body.hands, 10) || 100));
+    const { deck, bettable, actualHands } = simulateDealing(hands);
+    const result = calculateProbability(deck);
+    return respond(res, 200, { hands, actualHands, deck, result, bettable }, null);
+  }
+
+  // POST /api/simulate-s7  { hands: N }  仅超级幸运7，运算量约为simulate的1/7
+  if (req.method === 'POST' && req.url === '/api/simulate-s7') {
+    const body = await parseBody(req);
+    const hands = Math.max(1, Math.min(10000, parseInt(body.hands, 10) || 100));
+    const { deck, bettable, actualHands, bettableHands, prob, ev } = simulateSuperSeven(hands);
+    return respond(res, 200, { hands, actualHands, deck, bettable, bettableHands, prob, ev }, null);
+  }
+
+  // POST /api/simulate-dragon  { hands: N }  闲龙宝+庄龙宝
+  if (req.method === 'POST' && req.url === '/api/simulate-dragon') {
+    const body = await parseBody(req);
+    const hands = Math.max(1, Math.min(10000, parseInt(body.hands, 10) || 100));
+    const result = simulateDragonBonus(hands);
+    return respond(res, 200, result, null);
+  }
+
+  // POST /api/simulate-l6two  { hands: N }  仅两张幸运6
+  if (req.method === 'POST' && req.url === '/api/simulate-l6two') {
+    const body = await parseBody(req);
+    const hands = Math.max(1, Math.min(10000, parseInt(body.hands, 10) || 100));
+    const { deck, bettable, actualHands, bettableHands, prob, ev } = simulateLucky6Two(hands);
+    return respond(res, 200, { hands, actualHands, deck, bettable, bettableHands, prob, ev }, null);
+  }
+
+  // POST /api/simulate-l6three  { hands: N }  仅幸运6三张牌
+  if (req.method === 'POST' && req.url === '/api/simulate-l6three') {
+    const body = await parseBody(req);
+    const hands = Math.max(1, Math.min(10000, parseInt(body.hands, 10) || 100));
+    const { deck, bettable, actualHands, bettableHands, prob, ev } = simulateLucky6Three(hands);
+    return respond(res, 200, { hands, actualHands, deck, bettable, bettableHands, prob, ev }, null);
   }
 
   respond(res, 404, { error: 'Not found' });

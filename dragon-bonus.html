@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>龙宝概率计算器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Cinzel:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #eef2f7;
+    --bg2:       #f5f8fc;
+    --bg3:       #e0e8f2;
+    --surface:   #ffffff;
+    --border:    #ccd8e8;
+    --text:      #1a1a1a;
+    --text-dim:  #888888;
+    --gold:      #e6820a;
+    --gold-light:#f0a030;
+    --gold-dark: #b86200;
+    --red:       #e03030;
+    --green:     #1aaa55;
+    --blue:      #1a73e8;
+    --dragon-p:  #d44000;
+    --dragon-b:  #1a6bd4;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 18px;
+    overflow-x: hidden;
+  }
+
+  .container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+  }
+
+  /* ── 标题 ── */
+  header {
+    text-align: center;
+    padding: 14px 0 16px;
+  }
+
+  .title-en {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(18px, 3.5vw, 26px);
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+
+  .title-main {
+    font-size: clamp(26px, 5vw, 38px);
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+  }
+
+  .title-sub {
+    margin-top: 8px;
+    font-size: 17px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+
+  /* ── 导航 ── */
+  .nav-link {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 15px;
+    color: var(--blue);
+    text-decoration: none;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--surface);
+    transition: all 0.15s;
+  }
+  .nav-link:hover { border-color: var(--blue); background: #edf3ff; }
+
+  /* ── 规则说明 ── */
+  .rules-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+  }
+
+  .rules-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .rules-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 24px;
+  }
+
+  @media (max-width: 560px) { .rules-grid { grid-template-columns: 1fr; } }
+
+  .rule-block { }
+
+  .rule-block-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .rule-dot-p { width: 10px; height: 10px; border-radius: 50%; background: var(--dragon-p); flex-shrink: 0; }
+  .rule-dot-b { width: 10px; height: 10px; border-radius: 50%; background: var(--dragon-b); flex-shrink: 0; }
+
+  .payout-table {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .pt-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 15px;
+  }
+
+  .pt-label { color: var(--text-dim); }
+  .pt-odds { font-family: 'Cinzel', serif; font-weight: 700; color: var(--gold); }
+  .pt-natural { border-color: rgba(230,130,10,0.3); background: rgba(230,130,10,0.06); }
+  .pt-natural .pt-odds { color: var(--gold); }
+
+  /* ── 主网格 ── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 640px) { .main-grid { grid-template-columns: 1fr; } }
+
+  /* ── 牌靴卡 ── */
+  .deck-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    grid-column: 1 / -1;
+  }
+
+  .card-header {
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg2);
+  }
+
+  .card-title { font-size: 17px; font-weight: 700; color: var(--text-dim); letter-spacing: 0.04em; }
+
+  .btn {
+    padding: 7px 18px;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-danger {
+    background: #fff0f0;
+    color: var(--red);
+    border: 1px solid #ffcccc;
+  }
+  .btn-danger:hover { background: #ffe0e0; }
+
+  .card-body { padding: 14px 16px; }
+
+  .deck-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 7px;
+    margin-bottom: 10px;
+  }
+
+  .deck-cell {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 4px 7px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .deck-cell:hover { border-color: var(--gold); background: var(--bg3); transform: translateY(-1px); }
+  .deck-cell:active { transform: translateY(0); }
+  .deck-cell.depleted { opacity: 0.3; pointer-events: none; }
+  .deck-cell.low .deck-cell-count { color: #f0b429; }
+
+  .deck-cell-label { font-family: 'Cinzel', serif; font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .deck-cell-count { font-size: 24px; font-weight: 700; font-family: 'Cinzel', serif; color: var(--text); }
+  .deck-cell-max { font-size: 13px; color: var(--text-dim); }
+
+  .deck-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 10px;
+    background: var(--bg3);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
+  .deck-info-label { font-size: 16px; color: var(--text-dim); font-weight: 600; }
+  .deck-info-val { font-family: 'Cinzel', serif; font-size: 22px; font-weight: 700; color: var(--text); }
+
+  /* ── 龙宝结果卡 ── */
+  .dragon-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .dragon-card-header {
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg2);
+  }
+
+  .dragon-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  .ind-p { background: var(--dragon-p); }
+  .ind-b { background: var(--dragon-b); }
+
+  .dragon-card-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .dragon-card-body { padding: 14px 16px; }
+
+  /* ── 总期望 ── */
+  .ev-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    border: 2px solid;
+  }
+
+  .ev-total-p { border-color: rgba(212,64,0,0.25); background: rgba(212,64,0,0.04); }
+  .ev-total-b { border-color: rgba(26,107,212,0.25); background: rgba(26,107,212,0.04); }
+
+  .ev-total-label { font-size: 17px; font-weight: 600; color: var(--text-dim); }
+  .ev-total-val { font-family: 'Cinzel', serif; font-size: 34px; font-weight: 700; }
+  .ev-pos { color: var(--green); }
+  .ev-neg { color: var(--red); }
+
+  /* ── 分档明细 ── */
+  .tiers { display: flex; flex-direction: column; gap: 7px; }
+
+  .tier-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 70px 80px;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+
+  .tier-row.natural-row {
+    border-color: rgba(230,130,10,0.3);
+    background: rgba(230,130,10,0.05);
+  }
+
+  .tier-label {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .tier-odds {
+    font-family: 'Cinzel', serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--gold);
+    text-align: center;
+  }
+
+  .tier-bar-wrap {
+    flex: 1;
+    height: 7px;
+    background: var(--bg3);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .tier-bar { height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+  .bar-p { background: linear-gradient(90deg, #8b2000, var(--dragon-p)); }
+  .bar-b { background: linear-gradient(90deg, #0a3080, var(--dragon-b)); }
+  .bar-nat { background: linear-gradient(90deg, var(--gold-dark), var(--gold-light)); }
+
+  .tier-prob {
+    font-family: 'Cinzel', serif;
+    font-size: 16px;
+    font-weight: 700;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .prob-p { color: var(--dragon-p); }
+  .prob-b { color: var(--dragon-b); }
+  .prob-nat { color: var(--gold); }
+
+  .tier-ev {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  /* ── EV 汇总 ── */
+  .ev-summary {
+    margin-top: 12px;
+    padding: 9px 12px;
+    background: var(--bg3);
+    border-radius: 6px;
+    border-left: 3px solid var(--gold);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .ev-summary-label { font-size: 16px; font-weight: 600; color: var(--text-dim); }
+  .ev-summary-val { font-family: 'Cinzel', serif; font-size: 26px; font-weight: 700; }
+
+  /* ── 状态栏 ── */
+  .status-bar {
+    padding: 9px 14px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    min-height: 38px;
+    margin-top: 10px;
+  }
+  .status-bar.show { opacity: 1; }
+  .status-success { background: rgba(26,170,85,0.1); border: 1px solid rgba(26,170,85,0.25); color: var(--green); }
+  .status-error   { background: rgba(224,48,48,0.1); border: 1px solid rgba(224,48,48,0.25); color: var(--red); }
+
+  /* ── Loading ── */
+  .loading-overlay {
+    position: fixed; inset: 0;
+    background: rgba(238,242,247,0.88);
+    z-index: 100;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .loading-overlay.show { opacity: 1; pointer-events: all; }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 2px solid rgba(0,0,0,0.1);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 10px;
+  }
+  .loading-text { font-size: 14px; color: var(--text-dim); letter-spacing: 0.1em; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+  .container > * { animation: fadeInUp 0.4s ease both; }
+  header { animation-delay: 0.0s; }
+  .rules-card { animation-delay: 0.05s; }
+  .deck-card { animation-delay: 0.1s; }
+  .dragon-card:nth-child(1) { animation-delay: 0.12s; }
+  .dragon-card:nth-child(2) { animation-delay: 0.16s; }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">计算中...</div>
+</div>
+
+<div class="container">
+  <header>
+    <div class="title-en">DRAGON BONUS</div>
+    <div class="title-main">龙宝概率计算器</div>
+    <div class="title-sub">百家乐 · 精确枚举算法 · 实时牌靴追踪</div>
+    <a href="/" class="nav-link">← 返回幸运6幸运7</a>
+    <a href="/dragon-impact.html" class="nav-link">牌值影响分析 →</a>
+    <a href="/dragon-sim.html" class="nav-link">龙宝下注统计 →</a>
+  </header>
+
+  <!-- 规则说明 -->
+  <div class="rules-card">
+    <div class="rules-title">赔率规则</div>
+    <div class="rules-grid">
+      <div class="rule-block">
+        <div class="rule-block-title"><span class="rule-dot-p"></span>闲龙宝 / 庄龙宝（共用赔率）</div>
+        <div class="payout-table">
+          <div class="pt-row pt-natural">
+            <span class="pt-label">例牌胜</span>
+            <span class="pt-odds">1:1</span>
+          </div>
+          <div class="pt-row">
+            <span class="pt-label">赢9点</span>
+            <span class="pt-odds">1:30</span>
+          </div>
+          <div class="pt-row">
+            <span class="pt-label">赢8点</span>
+            <span class="pt-odds">1:10</span>
+          </div>
+          <div class="pt-row">
+            <span class="pt-label">赢7点</span>
+            <span class="pt-odds">1:5</span>
+          </div>
+          <div class="pt-row">
+            <span class="pt-label">赢6点</span>
+            <span class="pt-odds">1:3</span>
+          </div>
+          <div class="pt-row">
+            <span class="pt-label">赢5点</span>
+            <span class="pt-odds">1:2</span>
+          </div>
+          <div class="pt-row">
+            <span class="pt-label">赢4点</span>
+            <span class="pt-odds">1:1</span>
+          </div>
+        </div>
+      </div>
+      <div class="rule-block">
+        <div class="rule-block-title" style="color:#666">说明</div>
+        <div style="font-size:15px; color:var(--text-dim); line-height:1.8;">
+          <b style="color:var(--text)">非例牌</b>：头两张点数之和不是8或9（需补牌），以此胜出才触发赔率档<br>
+          <b style="color:var(--text)">例牌</b>：头两张点数之和为8或9（天牌），胜出赔1倍<br>
+          <b style="color:var(--text)">赢N点</b>：己方点数 − 对方点数 = N<br>
+          和局、负局均亏本1倍投注
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 牌靴 -->
+  <div class="deck-card">
+    <div class="card-header">
+      <span class="card-title">牌靴状态（点击移除一张）</span>
+      <button class="btn btn-danger" onclick="resetDeck()">重置牌靴</button>
+    </div>
+    <div class="card-body">
+      <div class="deck-grid" id="deck-grid"></div>
+      <div class="deck-info">
+        <span class="deck-info-label">剩余牌数</span>
+        <span class="deck-info-val" id="deck-remaining">—</span>
+      </div>
+      <div class="status-bar" id="status-bar"></div>
+    </div>
+  </div>
+
+  <!-- 龙宝结果 -->
+  <div class="main-grid">
+    <!-- 闲龙宝 -->
+    <div class="dragon-card" id="card-player">
+      <div class="dragon-card-header">
+        <span class="dragon-indicator ind-p"></span>
+        <span class="dragon-card-title">闲龙宝</span>
+      </div>
+      <div class="dragon-card-body">
+        <div class="ev-total ev-total-p">
+          <span class="ev-total-label">总期望值（投1元）</span>
+          <span class="ev-total-val" id="p-ev-total">—</span>
+        </div>
+        <div class="tiers" id="p-tiers"></div>
+        <div class="ev-summary">
+          <span class="ev-summary-label">庄家优势</span>
+          <span class="ev-summary-val" id="p-house-edge">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 庄龙宝 -->
+    <div class="dragon-card" id="card-banker">
+      <div class="dragon-card-header">
+        <span class="dragon-indicator ind-b"></span>
+        <span class="dragon-card-title">庄龙宝</span>
+      </div>
+      <div class="dragon-card-body">
+        <div class="ev-total ev-total-b">
+          <span class="ev-total-label">总期望值（投1元）</span>
+          <span class="ev-total-val" id="b-ev-total">—</span>
+        </div>
+        <div class="tiers" id="b-tiers"></div>
+        <div class="ev-summary">
+          <span class="ev-summary-label">庄家优势</span>
+          <span class="ev-summary-val" id="b-house-edge">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 配置 ──
+const API_BASE = '/lucky7-api';
+const SID_KEY  = 'lucky7_dragon_sid';
+
+// ── 龙宝分档定义 ──
+const PLAYER_TIERS = [
+  { key: 'natural', label: '例牌胜',  odds: '×1',  isNatural: true },
+  { key: 'win9',    label: '赢9点',   odds: '×30' },
+  { key: 'win8',    label: '赢8点',   odds: '×10' },
+  { key: 'win7',    label: '赢7点',   odds: '×5'  },
+  { key: 'win6',    label: '赢6点',   odds: '×3'  },
+  { key: 'win5',    label: '赢5点',   odds: '×2'  },
+  { key: 'win4',    label: '赢4点',   odds: '×1'  },
+];
+
+// ── 最大概率（用于进度条归一化） ──
+let maxProb = { player: 0.17, banker: 0.17 };
+
+// ── API 封装 ──
+async function apiFetch(url, options = {}) {
+  const sid = localStorage.getItem(SID_KEY);
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (sid) headers['X-Session-Id'] = sid;
+
+  const res = await fetch(url, { ...options, headers });
+  const newSid = res.headers.get('X-Session-Id');
+  if (newSid) localStorage.setItem(SID_KEY, newSid);
+  return res.json();
+}
+
+// ── Loading ──
+function setLoading(on) {
+  document.getElementById('loading').classList.toggle('show', on);
+}
+
+// ── 状态提示 ──
+let statusTimer;
+function showStatus(msg, type = 'success') {
+  const el = document.getElementById('status-bar');
+  el.textContent = msg;
+  el.className = 'status-bar show status-' + type;
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ── 渲染牌靴 ──
+const LABELS = ['10', 'A', '2', '3', '4', '5', '6', '7', '8', '9'];
+const MAXES  = [128, 32, 32, 32, 32, 32, 32, 32, 32, 32];
+
+function renderDeck(deck) {
+  const grid = document.getElementById('deck-grid');
+  grid.innerHTML = '';
+  let total = 0;
+  for (let v = 0; v <= 9; v++) {
+    const cnt = deck[v] || 0;
+    total += cnt;
+    const cell = document.createElement('div');
+    cell.className = 'deck-cell' + (cnt === 0 ? ' depleted' : cnt <= 4 ? ' low' : '');
+    const pct = cnt / MAXES[v];
+    cell.innerHTML = `
+      <div class="deck-cell-label">${LABELS[v]}</div>
+      <div class="deck-cell-count">${cnt}</div>
+      <div class="deck-cell-max">/${MAXES[v]}</div>
+    `;
+    cell.onclick = () => removeCard(v);
+    grid.appendChild(cell);
+  }
+  document.getElementById('deck-remaining').textContent = total;
+}
+
+// ── 渲染龙宝结果 ──
+function renderDragonSide(side, data, tiersEl, evTotalEl, houseEdgeEl) {
+  // 计算总 ev 和总 prob（触发时）
+  let totalEv = 0;
+  let totalWinProb = 0;
+  const tiers = PLAYER_TIERS;
+  for (const t of tiers) {
+    const d = data[t.key];
+    totalEv += d.ev;
+    totalWinProb += d.prob;
+  }
+  // 还有输的部分：其余情况亏本 1 倍 → ev loss = (1 - totalWinProb) * (-1)
+  const totalNetEv = totalEv - (1 - totalWinProb);
+
+  // 总期望
+  evTotalEl.textContent = totalNetEv.toFixed(4);
+  evTotalEl.className = 'ev-total-val ' + (totalNetEv >= 0 ? 'ev-pos' : 'ev-neg');
+
+  // 庄家优势
+  const houseEdge = -totalNetEv;
+  houseEdgeEl.textContent = (houseEdge * 100).toFixed(2) + '%';
+  houseEdgeEl.className = 'ev-summary-val ' + (houseEdge > 0 ? 'ev-neg' : 'ev-pos');
+
+  // 最大概率用于进度条
+  const maxP = Math.max(...tiers.map(t => data[t.key].prob));
+
+  tiersEl.innerHTML = '';
+  const barClass = side === 'player' ? 'bar-p' : 'bar-b';
+  const probClass = side === 'player' ? 'prob-p' : 'prob-b';
+
+  for (const t of tiers) {
+    const d = data[t.key];
+    const barW = maxP > 0 ? (d.prob / maxP * 100).toFixed(1) : 0;
+    const isNat = t.isNatural;
+    const row = document.createElement('div');
+    row.className = 'tier-row' + (isNat ? ' natural-row' : '');
+    row.innerHTML = `
+      <span class="tier-label">${t.label}</span>
+      <div class="tier-bar-wrap">
+        <div class="tier-bar ${isNat ? 'bar-nat' : barClass}" style="width:${barW}%"></div>
+      </div>
+      <span class="tier-odds">${t.odds}</span>
+      <span class="tier-prob ${isNat ? 'prob-nat' : probClass}">${(d.prob * 100).toFixed(3)}%</span>
+    `;
+    tiersEl.appendChild(row);
+  }
+}
+
+function updateUI(result) {
+  if (!result || !result.dragon) return;
+  const d = result.dragon;
+
+  renderDragonSide(
+    'player', d.player,
+    document.getElementById('p-tiers'),
+    document.getElementById('p-ev-total'),
+    document.getElementById('p-house-edge'),
+  );
+  renderDragonSide(
+    'banker', d.banker,
+    document.getElementById('b-tiers'),
+    document.getElementById('b-ev-total'),
+    document.getElementById('b-house-edge'),
+  );
+}
+
+// ── 移除一张牌 ──
+async function removeCard(v) {
+  setLoading(true);
+  try {
+    const data = await apiFetch(API_BASE + '/remove', {
+      method: 'POST',
+      body: JSON.stringify({ cards: [v] }),
+    });
+    if (data.removed && data.removed.length > 0) {
+      renderDeck(data.deck);
+      updateUI(data.result);
+      showStatus(`已移除 ${LABELS[v]}，剩余 ${Object.values(data.deck).reduce((a,b)=>a+b,0)} 张`, 'success');
+    } else {
+      showStatus('该牌已耗尽', 'error');
+    }
+  } catch(e) {
+    showStatus('网络错误', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── 重置 ──
+async function resetDeck() {
+  setLoading(true);
+  try {
+    const data = await apiFetch(API_BASE + '/reset', { method: 'POST' });
+    renderDeck(data.deck);
+    updateUI(data.result);
+    showStatus('已重置为新牌靴（8副，416张）', 'success');
+  } catch(e) {
+    showStatus('网络错误', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── 初始化 ──
+async function init() {
+  setLoading(true);
+  try {
+    const data = await apiFetch(API_BASE + '/calc');
+    renderDeck(data.deck);
+    updateUI(data.result);
+  } catch(e) {
+    showStatus('无法连接服务器', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+init();
+</script>
+</body>
+</html>

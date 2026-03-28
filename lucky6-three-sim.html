@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>幸运6三张牌 · 可下注机会统计</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Cinzel:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #eef2f7;
+    --bg2:       #f5f8fc;
+    --bg3:       #e0e8f2;
+    --surface:   #ffffff;
+    --border:    #ccd8e8;
+    --text:      #1a1a1a;
+    --text-dim:  #888888;
+    --gold:      #e6820a;
+    --gold-light:#f0a030;
+    --gold-dark: #b86200;
+    --red:       #e03030;
+    --green:     #1aaa55;
+    --blue:      #1a73e8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 18px;
+  }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 14px 16px 60px;
+  }
+
+  /* ── 标题 ── */
+  header { text-align: center; padding: 10px 0 12px; }
+
+  .title-en {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(16px, 3vw, 22px);
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+
+  .title-main {
+    font-size: clamp(24px, 5vw, 36px);
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .title-sub {
+    margin-top: 8px;
+    font-size: 16px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+  }
+
+  .nav-links {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .nav-link {
+    font-size: 14px;
+    color: var(--blue);
+    text-decoration: none;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--surface);
+    transition: all 0.15s;
+  }
+  .nav-link:hover { border-color: var(--blue); background: #edf3ff; }
+
+  /* ── 说明 ── */
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 20px;
+    margin-bottom: 18px;
+    font-size: 15px;
+    color: var(--text-dim);
+    line-height: 1.9;
+  }
+  .info-card b { color: var(--text); }
+
+  /* ── 输入区 ── */
+  .input-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 18px;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+
+  .input-label {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    min-width: 90px;
+  }
+
+  .input-num {
+    width: 130px;
+    background: var(--bg2);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Cinzel', serif;
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-num:focus { border-color: var(--gold); }
+
+  .input-hint { font-size: 14px; color: var(--text-dim); }
+
+  .presets {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .preset-btn {
+    padding: 6px 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg2);
+    color: var(--text);
+    font-family: 'Cinzel', serif;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .preset-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--bg3); }
+  .preset-btn.active { border-color: var(--gold); color: var(--gold-dark); background: rgba(230,130,10,0.08); }
+
+  .input-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 16px 0;
+  }
+
+  .btn-simulate {
+    margin-top: 16px;
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    background: var(--gold);
+    color: #0d1117;
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 19px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    transition: all 0.18s;
+  }
+  .btn-simulate:hover { filter: brightness(1.12); transform: translateY(-1px); }
+  .btn-simulate:active { transform: translateY(0); }
+  .btn-simulate:disabled { opacity: 0.5; cursor: not-allowed; transform: none; filter: none; }
+
+  /* ── 大数字展示卡 ── */
+  .hero-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px 24px 24px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  .hero-label {
+    font-size: 16px;
+    color: var(--text-dim);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    margin-bottom: 12px;
+  }
+
+  .hero-nums {
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .hero-bettable {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(48px, 10vw, 72px);
+    font-weight: 900;
+    line-height: 1;
+    color: var(--gold);
+  }
+
+  .hero-bettable.zero { color: var(--text-dim); }
+
+  .hero-sep {
+    font-family: 'Cinzel', serif;
+    font-size: 32px;
+    color: var(--border);
+    font-weight: 700;
+  }
+
+  .hero-total {
+    font-family: 'Cinzel', serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text-dim);
+  }
+
+  .hero-unit {
+    font-size: 20px;
+    color: var(--text-dim);
+    font-weight: 600;
+    margin-left: 4px;
+  }
+
+  .hero-pct {
+    margin-top: 10px;
+    font-family: 'Cinzel', serif;
+    font-size: 28px;
+    font-weight: 700;
+  }
+
+  .hero-pct.pos { color: var(--green); }
+  .hero-pct.zero { color: var(--text-dim); }
+
+  .hero-sub {
+    margin-top: 8px;
+    font-size: 15px;
+    color: var(--text-dim);
+  }
+
+  /* ── 三格统计条 ── */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 500px) { .stat-row { grid-template-columns: 1fr; } }
+
+  .stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 14px;
+    text-align: center;
+  }
+
+  .stat-box-label {
+    font-size: 14px;
+    color: var(--text-dim);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .stat-box-val {
+    font-family: 'Cinzel', serif;
+    font-size: 30px;
+    font-weight: 700;
+  }
+
+  .stat-box-unit { font-size: 14px; color: var(--text-dim); margin-top: 3px; }
+
+  .val-gold  { color: var(--gold-dark); }
+  .val-red   { color: var(--red); }
+  .val-dim   { color: var(--text-dim); }
+
+  /* ── 进度条 ── */
+  .progress-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+
+  .progress-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    letter-spacing: 0.04em;
+  }
+
+  .progress-wrap {
+    height: 28px;
+    background: var(--bg3);
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 10px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 14px;
+    background: linear-gradient(90deg, var(--gold-dark), var(--gold-light));
+    transition: width 0.7s cubic-bezier(0.34,1.56,0.64,1);
+    min-width: 0;
+  }
+
+  .progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+
+  .progress-labels b { color: var(--text); }
+
+  /* ── EV 摘要 ── */
+  .ev-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .ev-card-label { font-size: 15px; color: var(--text-dim); font-weight: 600; }
+  .ev-card-val { font-family: 'Cinzel', serif; font-size: 28px; font-weight: 700; }
+  .ev-pos { color: var(--green); }
+  .ev-neg { color: var(--red); }
+
+  .ev-card-detail { font-size: 14px; color: var(--text-dim); text-align: right; line-height: 1.6; }
+
+  /* ── 历史记录表 ── */
+  .history-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .card-header {
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .card-title { font-size: 16px; font-weight: 700; color: var(--text-dim); letter-spacing: 0.04em; }
+  .card-badge { font-family: 'Cinzel', serif; font-size: 15px; font-weight: 700; color: var(--text-dim); }
+
+  .btn-clear {
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg2);
+    color: var(--text-dim);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-clear:hover { border-color: var(--red); color: var(--red); background: #fff0f0; }
+
+  .history-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .history-table th {
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .history-table th:first-child { text-align: left; }
+
+  .history-table td {
+    padding: 9px 14px;
+    font-size: 15px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .history-table tr:last-child td { border-bottom: none; }
+  .history-table tr:hover td { background: var(--bg2); }
+  .history-table td:first-child { text-align: left; color: var(--text-dim); font-size: 13px; }
+
+  .td-count { font-family: 'Cinzel', serif; font-weight: 700; font-size: 18px; }
+  .td-total { color: var(--text-dim); font-size: 14px; }
+  .td-pct   { font-family: 'Cinzel', serif; font-weight: 700; font-size: 16px; }
+  .td-ev    { font-family: 'Cinzel', serif; font-weight: 700; font-size: 15px; }
+
+  .count-pos  { color: var(--gold-dark); }
+  .count-zero { color: var(--text-dim); }
+  .pct-pos    { color: var(--green); }
+  .pct-zero   { color: var(--text-dim); }
+
+  .history-empty {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-dim);
+    font-size: 15px;
+  }
+
+  /* ── 累计汇总 ── */
+  .cumulative-card {
+    background: linear-gradient(135deg, rgba(230,130,10,0.06), rgba(230,130,10,0.02));
+    border: 1px solid rgba(230,130,10,0.3);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+  }
+
+  .cumulative-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--gold-dark);
+    margin-bottom: 12px;
+    letter-spacing: 0.04em;
+  }
+
+  .cumulative-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  @media (max-width: 600px) { .cumulative-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .cum-item { text-align: center; }
+  .cum-label { font-size: 13px; color: var(--text-dim); font-weight: 600; margin-bottom: 4px; }
+  .cum-val { font-family: 'Cinzel', serif; font-size: 22px; font-weight: 700; }
+
+  /* ── 状态 ── */
+  .status-bar {
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.3s;
+    min-height: 40px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .status-bar.show { opacity: 1; }
+  .status-error { background: rgba(224,48,48,0.1); border: 1px solid rgba(224,48,48,0.25); color: var(--red); }
+
+  /* ── 结果区 ── */
+  .results { display: none; }
+  .results.show { display: block; }
+
+  /* ── Loading ── */
+  .loading-overlay {
+    position: fixed; inset: 0;
+    background: rgba(238,242,247,0.9);
+    z-index: 100;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .loading-overlay.show { opacity: 1; pointer-events: all; }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid rgba(0,0,0,0.1);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 12px;
+  }
+  .loading-text { font-size: 15px; color: var(--text-dim); letter-spacing: 0.1em; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  .results.show > * { animation: fadeInUp 0.35s ease both; }
+  .results.show > *:nth-child(2) { animation-delay: 0.05s; }
+  .results.show > *:nth-child(3) { animation-delay: 0.10s; }
+  .results.show > *:nth-child(4) { animation-delay: 0.15s; }
+  .results.show > *:nth-child(5) { animation-delay: 0.20s; }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">模拟发牌中...</div>
+</div>
+
+<div class="container">
+  <header>
+    <div class="title-en">LUCKY 6 THREE CARDS · SIMULATION</div>
+    <div class="title-main">幸运6三张牌 下注机会统计</div>
+    <div class="title-sub">模拟随机发牌 · 统计庄家优势 &lt; 0.5% 的可下注局数</div>
+    <div class="nav-links">
+      <a href="/" class="nav-link">← 幸运6幸运7</a>
+      <a href="/simulate.html" class="nav-link">综合模拟器</a>
+      <a href="/lucky7-sim.html" class="nav-link">超级幸运7统计</a>
+      <a href="/dragon-bonus.html" class="nav-link">龙宝概率</a>
+    </div>
+  </header>
+
+  <div class="input-card">
+    <div class="input-row">
+      <span class="input-label">模拟局数：</span>
+      <input type="number" class="input-num" id="hands-input" value="65" min="1" max="10000">
+      <span class="input-hint">（1 – 10000局）</span>
+    </div>
+    <div class="presets">
+      <span style="font-size:14px;color:var(--text-dim);align-self:center;">快速选择：</span>
+      <button class="preset-btn" onclick="setPreset(40)">40</button>
+      <button class="preset-btn" onclick="setPreset(50)">50</button>
+      <button class="preset-btn" onclick="setPreset(60)">60</button>
+      <button class="preset-btn active" onclick="setPreset(65)">65</button>
+      <button class="preset-btn" onclick="setPreset(70)">70</button>
+      <button class="preset-btn" onclick="setPreset(80)">80</button>
+    </div>
+    <hr class="input-divider">
+    <div class="input-row" style="margin-bottom:0;">
+      <span class="input-label">重复次数：</span>
+      <input type="number" class="input-num" id="repeat-input" value="1" min="1" max="100">
+      <span class="input-hint">（同参数连续跑多次，累计统计，最多100次）</span>
+    </div>
+    <button class="btn-simulate" id="btn-sim" onclick="runSimulation()">开始模拟</button>
+  </div>
+
+  <div class="status-bar status-error" id="status-bar"></div>
+
+  <!-- 最新一次结果 -->
+  <div class="results" id="results">
+
+    <!-- 大数字展示 -->
+    <div class="hero-card">
+      <div class="hero-label">本次模拟 · 幸运6三张牌 可下注局数</div>
+      <div class="hero-nums">
+        <span class="hero-bettable" id="hero-bettable">—</span>
+        <span class="hero-sep">/</span>
+        <span class="hero-total" id="hero-total">—</span>
+        <span class="hero-unit">局</span>
+      </div>
+      <div class="hero-pct" id="hero-pct">—</div>
+      <div class="hero-sub" id="hero-sub"></div>
+    </div>
+
+    <!-- 三格统计 -->
+    <div class="stat-row">
+      <div class="stat-box">
+        <div class="stat-box-label">总模拟局数</div>
+        <div class="stat-box-val val-dim" id="stat-total">—</div>
+        <div class="stat-box-unit">局</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-label">可下注局数</div>
+        <div class="stat-box-val val-gold" id="stat-bettable">—</div>
+        <div class="stat-box-unit">局（庄家优势 &lt; 0.5%）</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-label">不可下注局数</div>
+        <div class="stat-box-val val-red" id="stat-no-bet">—</div>
+        <div class="stat-box-unit">局（庄家优势 ≥ 0.5%）</div>
+      </div>
+    </div>
+
+    <!-- 进度条 -->
+    <div class="progress-card">
+      <div class="progress-title">可下注比例</div>
+      <div class="progress-wrap">
+        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+      <div class="progress-labels">
+        <span>可下注 <b id="prog-bettable-pct">0%</b></span>
+        <span>不可下注 <b id="prog-no-bet-pct">100%</b></span>
+      </div>
+    </div>
+
+    <!-- EV 摘要 -->
+    <div class="ev-card">
+      <div>
+        <div class="ev-card-label">模拟后剩余牌靴 · 幸运6三张牌 净期望</div>
+        <div class="ev-card-val" id="ev-val">—</div>
+      </div>
+      <div class="ev-card-detail" id="ev-detail"></div>
+    </div>
+
+    <!-- 可下注局明细 -->
+    <div class="history-card" id="bettable-detail-section" style="display:none;">
+      <div class="card-header">
+        <span class="card-title">本次可下注局明细</span>
+        <span class="card-badge" id="bettable-detail-badge"></span>
+      </div>
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th style="text-align:center;">第几局</th>
+            <th style="text-align:center;">庄家优势</th>
+            <th style="text-align:center;">玩家优势</th>
+          </tr>
+        </thead>
+        <tbody id="bettable-detail-tbody"></tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- 历史记录（多次模拟） -->
+  <div class="history-card" id="history-section" style="display:none;">
+    <div class="card-header">
+      <span class="card-title">历史模拟记录</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span class="card-badge" id="history-badge"></span>
+        <button class="btn-clear" onclick="clearHistory()">清空</button>
+      </div>
+    </div>
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>时间</th>
+          <th>总局数</th>
+          <th>可下注</th>
+          <th>不可下注</th>
+          <th>比例</th>
+          <th>各次下注结果</th>
+          <th>本次盈亏</th>
+          <th>剩余牌靴EV</th>
+        </tr>
+      </thead>
+      <tbody id="history-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- 累计统计（≥2次后显示） -->
+  <div class="cumulative-card" id="cumulative-section" style="display:none;">
+    <div class="cumulative-title">累计统计（共 <span id="cum-runs">0</span> 次模拟）</div>
+    <div class="cumulative-grid">
+      <div class="cum-item">
+        <div class="cum-label">累计总局数</div>
+        <div class="cum-val val-dim" id="cum-total">—</div>
+      </div>
+      <div class="cum-item">
+        <div class="cum-label">累计可下注</div>
+        <div class="cum-val val-gold" id="cum-bettable">—</div>
+      </div>
+      <div class="cum-item">
+        <div class="cum-label">累计比例</div>
+        <div class="cum-val pct-pos" id="cum-pct">—</div>
+      </div>
+      <div class="cum-item">
+        <div class="cum-label">平均每次</div>
+        <div class="cum-val val-dim" id="cum-avg">—</div>
+      </div>
+      <div class="cum-item" style="grid-column: span 2;">
+        <div class="cum-label">累计盈亏（每次下注¥100）</div>
+        <div class="cum-val" id="cum-profit">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-card" style="margin-top:16px;margin-bottom:0;">
+    <b>统计方式：</b>每次模拟重新随机洗牌（8副416张），按标准百家乐补牌规则发牌，每发完一局就对剩余牌靴做<b>精确枚举</b>，计算幸运6三张牌的净期望值。<br>
+    <b>触发条件：</b>庄家三张牌合计6点且庄赢（赔率 ×50，下注¥100盈利¥5000拿回¥5100）。<br>
+    <b>可下注条件：</b>净期望值 &gt; −0.5%（即庄家优势 &lt; 0.5%）时视为该局可下注。<br>
+    <b>基准期望：</b>满牌靴幸运6三张牌 净期望 = −15.25%（庄家优势 15.25%）
+  </div>
+
+</div>
+
+<script>
+const API_BASE = '/lucky7-api';
+const BASE_EV  = -0.152533; // 满牌靴幸运6三张牌净期望
+
+// ── 历史记录 ──
+const history = [];
+
+function setLoading(on, msg = '模拟发牌中...') {
+  document.getElementById('loading').classList.toggle('show', on);
+  document.getElementById('loading-text').textContent = msg;
+}
+
+function showError(msg) {
+  const el = document.getElementById('status-bar');
+  el.textContent = msg;
+  el.className = 'status-bar status-error show';
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function setPreset(n) {
+  document.getElementById('hands-input').value = n;
+  document.querySelectorAll('.preset-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.textContent) === n);
+  });
+}
+
+// ── 渲染最新结果 ──
+function renderResult(data) {
+  const total    = data.actualHands;
+  const bettable = data.bettable;
+  const noBet    = total - bettable;
+  const pct      = total > 0 ? bettable / total * 100 : 0;
+
+  // 大数字
+  const heroEl = document.getElementById('hero-bettable');
+  heroEl.textContent = bettable;
+  heroEl.className = 'hero-bettable' + (bettable === 0 ? ' zero' : '');
+
+  document.getElementById('hero-total').textContent = total;
+
+  const pctEl = document.getElementById('hero-pct');
+  pctEl.textContent = pct.toFixed(1) + '%';
+  pctEl.className = 'hero-pct ' + (bettable > 0 ? 'pos' : 'zero');
+
+  document.getElementById('hero-sub').textContent =
+    `不可下注 ${noBet} 局 · 平均每局消耗约 ${((416 - Object.values(data.deck).reduce((a,b)=>a+b,0)) / total).toFixed(1)} 张牌`;
+
+  // 三格
+  document.getElementById('stat-total').textContent    = total;
+  document.getElementById('stat-bettable').textContent  = bettable;
+  document.getElementById('stat-no-bet').textContent    = noBet;
+
+  // 进度条
+  const pctStr  = pct.toFixed(1) + '%';
+  const noPctStr = (100 - pct).toFixed(1) + '%';
+  document.getElementById('progress-fill').style.width = pctStr;
+  document.getElementById('prog-bettable-pct').textContent = pctStr;
+  document.getElementById('prog-no-bet-pct').textContent   = noPctStr;
+
+  // EV
+  const l6EV  = data.ev - (1 - data.prob);
+  const diff  = l6EV - BASE_EV;
+  const sign  = diff > 0 ? '+' : '';
+  const evEl  = document.getElementById('ev-val');
+  evEl.textContent = l6EV.toFixed(4);
+  evEl.className   = 'ev-card-val ' + (l6EV >= 0 ? 'ev-pos' : 'ev-neg');
+  document.getElementById('ev-detail').innerHTML =
+    `触发概率 ${(data.prob * 100).toFixed(3)}%<br>` +
+    `庄家优势 ${(-l6EV * 100).toFixed(2)}%<br>` +
+    `vs 基准 ${sign}${(diff * 10000).toFixed(1)} bp`;
+
+  document.getElementById('results').classList.add('show');
+
+  // 可下注局明细
+  const detailSection = document.getElementById('bettable-detail-section');
+  const detailTbody   = document.getElementById('bettable-detail-tbody');
+  const bettableHands = data.bettableHands || [];
+  if (bettableHands.length > 0) {
+    detailSection.style.display = 'block';
+    document.getElementById('bettable-detail-badge').textContent = `共 ${bettableHands.length} 局`;
+    detailTbody.innerHTML = '';
+    for (const item of bettableHands) {
+      const isPlayerFav = item.edge <= 0;
+      const playerEdge  = -item.edge;
+      detailTbody.innerHTML += `
+        <tr>
+          <td class="td-total" style="text-align:center;">第 ${item.hand} 局后</td>
+          <td class="td-pct ${isPlayerFav ? 'pct-pos' : ''}" style="text-align:center;">${isPlayerFav ? '−' : ''}${Math.abs(item.edge).toFixed(4)}%</td>
+          <td class="td-pct ${isPlayerFav ? 'count-pos' : ''}" style="text-align:center;">${isPlayerFav ? '+' : '−'}${Math.abs(playerEdge).toFixed(4)}%</td>
+        </tr>`;
+    }
+  } else {
+    detailSection.style.display = 'none';
+  }
+}
+
+// ── 渲染历史 ──
+function renderHistory() {
+  if (history.length === 0) {
+    document.getElementById('history-section').style.display = 'none';
+    document.getElementById('cumulative-section').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('history-section').style.display = 'block';
+  document.getElementById('history-badge').textContent = `共 ${history.length} 次`;
+
+  const tbody = document.getElementById('history-tbody');
+  tbody.innerHTML = '';
+  for (let i = history.length - 1; i >= 0; i--) {
+    const r = history[i];
+    const pct = r.total > 0 ? (r.bettable / r.total * 100).toFixed(1) : '0.0';
+    const diff = r.ev - BASE_EV;
+    const sign = diff > 0 ? '+' : '';
+    const evCls = r.ev >= 0 ? 'ev-pos' : (r.ev < BASE_EV - 0.005 ? '' : 'ev-neg');
+
+    // 各次庄家优势标签（含局数、结果、盈亏）
+    let edgeTags = '—';
+    if (r.bettableHands && r.bettableHands.length > 0) {
+      edgeTags = r.bettableHands.map(h => {
+        const isPlayerFav = h.edge <= 0;
+        const absEdge = Math.abs(h.edge).toFixed(2);
+        const edgeSign = isPlayerFav ? '−' : '+';
+        const nr = h.nextResult;
+        let resultHtml = '';
+        if (nr && !nr.noNextHand) {
+          if (nr.hit) {
+            const profit = nr.payout * 100;
+            resultHtml = ` <span style="color:var(--gold);font-weight:700;">中 ×${nr.payout} 盈利¥${profit}</span>`;
+          } else {
+            resultHtml = ` <span style="color:var(--text-dim);">未中 −¥100</span>`;
+          }
+        } else if (nr && nr.noNextHand) {
+          resultHtml = ` <span style="color:var(--text-dim);">牌靴结束</span>`;
+        }
+        const borderColor = isPlayerFav ? 'rgba(26,170,85,0.3)' : 'rgba(224,48,48,0.25)';
+        const bgColor = isPlayerFav ? 'rgba(26,170,85,0.07)' : 'rgba(224,48,48,0.06)';
+        const edgeColor = isPlayerFav ? 'var(--green)' : 'var(--red)';
+        return `<span style="display:inline-block;background:${bgColor};border:1px solid ${borderColor};border-radius:4px;padding:2px 7px;margin:2px 2px;font-size:13px;white-space:nowrap;line-height:1.6;">` +
+          `<span style="color:var(--text-dim);font-size:12px;">第${h.hand}局后下注</span> ` +
+          `<span style="font-family:'Cinzel',serif;font-weight:700;color:${edgeColor};">${edgeSign}${absEdge}%</span>` +
+          resultHtml +
+          `</span>`;
+      }).join('');
+    }
+
+    const profitCls = r.profit > 0 ? 'count-pos' : r.profit < 0 ? '' : 'val-dim';
+    const profitSign = r.profit > 0 ? '+' : '';
+    tbody.innerHTML += `
+      <tr>
+        <td>${r.time}</td>
+        <td class="td-total">${r.total} 局</td>
+        <td class="td-count ${r.bettable > 0 ? 'count-pos' : 'count-zero'}">${r.bettable}</td>
+        <td class="td-count" style="color:var(--text-dim);">${r.total - r.bettable}</td>
+        <td class="td-pct ${r.bettable > 0 ? 'pct-pos' : 'pct-zero'}">${pct}%</td>
+        <td style="text-align:left;line-height:1.8;">${edgeTags}</td>
+        <td class="td-count ${profitCls}" style="color:${r.profit > 0 ? 'var(--green)' : r.profit < 0 ? 'var(--red)' : 'var(--text-dim)'};">${profitSign}¥${r.profit}</td>
+        <td class="td-ev ${evCls}">${r.ev.toFixed(4)}<br><span style="font-size:12px;font-weight:400;font-family:'Noto Sans SC',sans-serif;color:var(--text-dim);">${sign}${(diff*10000).toFixed(1)}bp</span></td>
+      </tr>`;
+  }
+
+  // 累计
+  if (history.length >= 2) {
+    document.getElementById('cumulative-section').style.display = 'block';
+    const cumTotal    = history.reduce((s, r) => s + r.total, 0);
+    const cumBettable = history.reduce((s, r) => s + r.bettable, 0);
+    const cumProfit   = history.reduce((s, r) => s + r.profit, 0);
+    const cumPct      = cumTotal > 0 ? (cumBettable / cumTotal * 100).toFixed(2) : '0.00';
+    const cumAvg      = history.length > 0 ? (cumBettable / history.length).toFixed(1) : '—';
+    document.getElementById('cum-runs').textContent     = history.length;
+    document.getElementById('cum-total').textContent    = cumTotal;
+    document.getElementById('cum-bettable').textContent = cumBettable;
+    document.getElementById('cum-pct').textContent      = cumPct + '%';
+    document.getElementById('cum-avg').textContent      = cumAvg + ' 局';
+    const cumProfitEl = document.getElementById('cum-profit');
+    cumProfitEl.textContent = (cumProfit >= 0 ? '+' : '') + '¥' + cumProfit;
+    cumProfitEl.className   = 'cum-val ' + (cumProfit > 0 ? 'count-pos' : cumProfit < 0 ? 'val-red' : 'val-dim');
+  }
+}
+
+function clearHistory() {
+  history.length = 0;
+  renderHistory();
+}
+
+// ── 主流程 ──
+async function runSimulation() {
+  const handsInput  = parseInt(document.getElementById('hands-input').value, 10);
+  const repeatInput = parseInt(document.getElementById('repeat-input').value, 10);
+  if (isNaN(handsInput) || handsInput < 1) { showError('请输入有效局数（1-10000）'); return; }
+  if (isNaN(repeatInput) || repeatInput < 1) { showError('请输入有效重复次数（1-100）'); return; }
+
+  const hands  = Math.min(10000, Math.max(1, handsInput));
+  const repeat = Math.min(100, Math.max(1, repeatInput));
+
+  document.getElementById('btn-sim').disabled = true;
+
+  for (let i = 0; i < repeat; i++) {
+    document.getElementById('btn-sim').textContent =
+      repeat > 1 ? `模拟中 ${i + 1} / ${repeat}...` : '模拟中...';
+
+    try {
+      const res = await fetch(API_BASE + '/simulate-l6three', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hands }),
+      });
+      const data = await res.json();
+
+      const l6EV = data.ev - (1 - data.prob);
+      const now  = new Date();
+      const timeStr = now.getHours().toString().padStart(2,'0') + ':' +
+                      now.getMinutes().toString().padStart(2,'0') + ':' +
+                      now.getSeconds().toString().padStart(2,'0');
+
+      const bettableHands = data.bettableHands || [];
+      let profit = 0;
+      for (const h of bettableHands) {
+        const nr = h.nextResult;
+        if (nr && !nr.noNextHand) {
+          profit += nr.hit ? nr.payout * 100 : -100;
+        }
+      }
+
+      history.push({
+        time:          timeStr,
+        total:         data.actualHands,
+        bettable:      data.bettable,
+        bettableHands,
+        ev:            l6EV,
+        profit,
+      });
+
+      // 每次完成立即渲染，无需等全部完成
+      renderResult(data);
+      renderHistory();
+      if (i === 0) {
+        document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } catch(e) {
+      showError('请求失败，请检查服务器状态');
+      break;
+    }
+  }
+
+  document.getElementById('btn-sim').textContent = '开始模拟';
+  document.getElementById('btn-sim').disabled = false;
+}
+
+// 回车触发
+document.getElementById('hands-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runSimulation();
+});
+document.getElementById('repeat-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runSimulation();
+});
+</script>
+</body>
+</html>
