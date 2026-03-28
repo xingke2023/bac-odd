@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>百家乐算牌 — 一级策略</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Cinzel:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #eef2f7;
+    --bg2:       #f5f8fc;
+    --bg3:       #e0e8f2;
+    --surface:   #ffffff;
+    --surface2:  #f5f8fc;
+    --border:    #ccd8e8;
+    --text:      #1a1a1a;
+    --text-dim:  #888888;
+    --gold:      #e6820a;
+    --gold-light:#f0a030;
+    --gold-dark: #b86200;
+    --red:       #e03030;
+    --red-bright:#e03030;
+    --green:     #1aaa55;
+    --green-bright: #1aaa55;
+    --blue:      #1a73e8;
+    --player-col:#d44000;
+    --banker-col:#1a6bd4;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 18px;
+    overflow-x: hidden;
+  }
+
+  .container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+  }
+
+  header {
+    text-align: center;
+    padding: 14px 0 20px;
+  }
+
+  .title-en {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(14px, 2.5vw, 20px);
+    font-weight: 700;
+    letter-spacing: 0.35em;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+
+  .title-main {
+    font-size: clamp(24px, 5vw, 36px);
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+  }
+
+  .title-sub {
+    margin-top: 8px;
+    font-size: 16px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+
+  .nav-links {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .nav-link {
+    font-size: 14px;
+    color: var(--blue);
+    text-decoration: none;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--surface);
+    transition: background 0.15s;
+  }
+  .nav-link:hover { background: var(--bg3); }
+
+  /* ── 计数大显示 ── */
+  .count-hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px 24px;
+    margin-bottom: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .count-hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--gold-dark), var(--gold-light), var(--gold-dark));
+  }
+
+  .count-label {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.25em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .count-value {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(72px, 14vw, 110px);
+    font-weight: 900;
+    line-height: 1;
+    transition: all 0.3s ease;
+  }
+
+  .count-value.positive { color: var(--banker-col); }
+  .count-value.negative { color: var(--player-col); }
+  .count-value.zero     { color: var(--text-dim); }
+
+  .count-subline {
+    margin-top: 10px;
+    font-size: 16px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+
+  /* ── 策略建议框 ── */
+  .advice-box {
+    margin-top: 16px;
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s ease;
+  }
+
+  .advice-player {
+    background: rgba(212,64,0,0.1);
+    border: 2px solid rgba(212,64,0,0.4);
+    color: var(--player-col);
+  }
+
+  .advice-banker {
+    background: rgba(26,107,212,0.1);
+    border: 2px solid rgba(26,107,212,0.4);
+    color: var(--banker-col);
+  }
+
+  .advice-neutral {
+    background: rgba(230,130,10,0.08);
+    border: 2px solid rgba(230,130,10,0.3);
+    color: var(--gold);
+  }
+
+  .advice-icon {
+    font-size: 22px;
+  }
+
+  /* ── 双栏布局 ── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 680px) {
+    .two-col { grid-template-columns: 1fr; }
+  }
+
+  /* ── 卡片 ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg2);
+  }
+
+  .card-icon { font-size: 17px; }
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .card-body { padding: 14px 16px; }
+
+  /* ── 快速输入牌按钮 ── */
+  .input-section { margin-bottom: 16px; }
+
+  .section-label {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .card-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 12px;
+  }
+
+  .chip {
+    width: 52px;
+    height: 62px;
+    border-radius: 7px;
+    border: 1.5px solid var(--border);
+    background: var(--bg2);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    transition: all 0.15s;
+    position: relative;
+  }
+
+  .chip-val {
+    font-family: 'Cinzel', serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .chip-tag {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 1px 4px;
+    border-radius: 3px;
+    line-height: 1.3;
+  }
+
+  .chip-tag.plus  { background: rgba(26,107,212,0.12); color: var(--banker-col); }
+  .chip-tag.minus { background: rgba(212,64,0,0.12);   color: var(--player-col); }
+  .chip-tag.zero  { background: rgba(136,136,136,0.12); color: var(--text-dim); }
+
+  .chip:hover {
+    border-color: var(--gold);
+    background: var(--bg3);
+    transform: translateY(-2px);
+  }
+  .chip:active { transform: translateY(0); }
+
+  /* 按牌组的加粗分隔 */
+  .chip-sep {
+    width: 1px;
+    height: 62px;
+    background: var(--border);
+    align-self: center;
+    margin: 0 2px;
+  }
+
+  /* ── 操作按钮 ── */
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 7px;
+    font-family: 'Noto Sans SC', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn-undo {
+    background: var(--bg3);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-undo:hover { background: #d4dde8; }
+
+  .btn-reset {
+    background: #fff0f0;
+    color: var(--red);
+    border: 1px solid #ffcccc;
+  }
+  .btn-reset:hover { background: #ffe0e0; }
+
+  /* ── 计点表 ── */
+  .count-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+  }
+
+  .count-table th {
+    padding: 7px 8px;
+    background: var(--bg2);
+    color: var(--text-dim);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .count-table td {
+    padding: 7px 8px;
+    text-align: center;
+    border-bottom: 1px solid var(--bg3);
+    font-family: 'Cinzel', serif;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .count-table tr:last-child td { border-bottom: none; }
+  .count-table td.card-label { font-size: 17px; }
+
+  .val-plus  { color: var(--banker-col); }
+  .val-plus2 { color: var(--banker-col); font-size: 18px; }
+  .val-minus { color: var(--player-col); }
+  .val-minus2{ color: var(--player-col); font-size: 18px; }
+  .val-zero  { color: var(--text-dim); }
+
+  /* ── 策略说明 ── */
+  .rule-box {
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    margin-bottom: 10px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+
+  .rule-box strong { color: var(--gold); }
+
+  .rule-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 7px;
+    margin-bottom: 7px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .rule-item.rule-player {
+    background: rgba(212,64,0,0.08);
+    border-left: 3px solid var(--player-col);
+    color: var(--player-col);
+  }
+
+  .rule-item.rule-banker {
+    background: rgba(26,107,212,0.08);
+    border-left: 3px solid var(--banker-col);
+    color: var(--banker-col);
+  }
+
+  /* ── 历史牌 ── */
+  .history-wrap {
+    max-height: 140px;
+    overflow-y: auto;
+    background: var(--bg2);
+    border-radius: 7px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+  }
+
+  .history-wrap::-webkit-scrollbar { width: 3px; }
+  .history-wrap::-webkit-scrollbar-track { background: transparent; }
+  .history-wrap::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
+
+  .history-inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .hist-chip {
+    width: 32px;
+    height: 32px;
+    border-radius: 5px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Cinzel', serif;
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .hist-chip.val-0  { color: var(--text-dim); }
+  .hist-chip.val-pos { color: var(--banker-col); }
+  .hist-chip.val-neg { color: var(--player-col); }
+
+  .history-empty {
+    color: var(--text-dim);
+    font-size: 15px;
+  }
+
+  /* ── 赌场优势表格 ── */
+  .edge-table-wrap { overflow-x: auto; }
+
+  .edge-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 360px;
+  }
+
+  .edge-table th {
+    padding: 7px 8px;
+    background: var(--bg2);
+    color: var(--text-dim);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-align: center;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .edge-table td {
+    padding: 6px 8px;
+    text-align: center;
+    border-bottom: 1px solid var(--bg3);
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+  }
+
+  .edge-table tr:last-child td { border-bottom: none; }
+  .edge-table tr.current-row td {
+    background: rgba(230,130,10,0.12);
+    font-weight: 700;
+  }
+  .edge-table tr.current-row td:first-child {
+    border-left: 3px solid var(--gold);
+  }
+
+  .edge-good { color: var(--green-bright); }
+  .edge-ok   { color: var(--gold); }
+  .edge-bad  { color: var(--red); }
+  .edge-row-player { border-left: 2px solid rgba(212,64,0,0.35); }
+
+  /* ── 统计数字 ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .stat-cell {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 10px 8px;
+    text-align: center;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .stat-val {
+    font-family: 'Cinzel', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  /* ── 动画 ── */
+  @keyframes flash {
+    0%   { opacity: 1; }
+    30%  { opacity: 0.5; }
+    100% { opacity: 1; }
+  }
+
+  .count-value.flash {
+    animation: flash 0.25s ease;
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .card { animation: fadeInUp 0.35s ease both; }
+  .card:nth-child(2) { animation-delay: 0.05s; }
+  .card:nth-child(3) { animation-delay: 0.1s; }
+
+  /* ── 手机 ── */
+  @media (max-width: 580px) {
+    .container { padding: 12px 10px 48px; }
+    header { padding: 10px 0 14px; }
+
+    .chip { width: 46px; height: 56px; }
+    .chip-val { font-size: 18px; }
+
+    .stats-grid { grid-template-columns: repeat(3, 1fr); }
+    .stat-val { font-size: 18px; }
+
+    .count-value { font-size: clamp(64px, 18vw, 96px); }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="title-en">CARD COUNTING</div>
+    <h1 class="title-main">百家乐算牌</h1>
+    <div class="title-sub">Thorp 一级策略</div>
+    <nav class="nav-links">
+      <a href="/index.html" class="nav-link">← 幸运6/7计算器</a>
+      <a href="/dragon-bonus.html" class="nav-link">龙宝计算器</a>
+      <a href="/simulate.html" class="nav-link">随机发牌模拟</a>
+    </nav>
+  </header>
+
+  <!-- 计数英雄区 -->
+  <div class="count-hero">
+    <div class="count-label">运行计数 · RUNNING COUNT</div>
+    <div class="count-value zero" id="countDisplay">0</div>
+    <div class="count-subline" id="countSubline">已记录 <span id="totalCards">0</span> 张牌 · 真实计数 <span id="trueCount">0.00</span></div>
+    <div class="advice-box advice-neutral" id="adviceBox">
+      <span class="advice-icon">♠</span>
+      <span id="adviceText">尚未记录任何牌</span>
+    </div>
+  </div>
+
+  <!-- 输入区 -->
+  <div class="card input-section" style="margin-bottom:16px;">
+    <div class="card-header">
+      <span class="card-icon">🃏</span>
+      <span class="card-title">点击记录出现的牌</span>
+    </div>
+    <div class="card-body">
+      <div class="card-chips" id="chipRow">
+        <!-- 由JS生成 -->
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-undo" id="btnUndo" onclick="undoLast()">撤销上一张</button>
+        <button class="btn btn-reset" onclick="resetAll()">重置牌靴</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+
+    <!-- 左：历史记录 + 统计 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-icon">📜</span>
+        <span class="card-title">已记录牌 <span id="histCount" style="color:var(--text);font-size:14px;font-weight:400;margin-left:4px;"></span></span>
+      </div>
+      <div class="card-body">
+        <div class="stats-grid">
+          <div class="stat-cell">
+            <div class="stat-label">已出牌</div>
+            <div class="stat-val" id="statUsed">0</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">剩余牌</div>
+            <div class="stat-val" id="statLeft">416</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">剩余副数</div>
+            <div class="stat-val" id="statDecks">8.0</div>
+          </div>
+        </div>
+        <div class="history-wrap">
+          <div class="history-inner" id="histList">
+            <span class="history-empty">尚未记录任何牌…</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右：计点表 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-icon">📋</span>
+        <span class="card-title">一级策略计点值</span>
+      </div>
+      <div class="card-body">
+        <table class="count-table">
+          <thead>
+            <tr>
+              <th>牌面</th>
+              <th>计点值</th>
+              <th>含义</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="card-label">A</td>
+              <td class="val-plus">+1</td>
+              <td style="font-size:13px;font-family:'Noto Sans SC',sans-serif;color:var(--text-dim);">小牌利庄</td>
+            </tr>
+            <tr>
+              <td class="card-label">2</td>
+              <td class="val-plus">+1</td>
+              <td style="font-size:13px;font-family:'Noto Sans SC',sans-serif;color:var(--text-dim);">小牌利庄</td>
+            </tr>
+            <tr>
+              <td class="card-label">3</td>
+              <td class="val-plus">+1</td>
+              <td style="font-size:13px;font-family:'Noto Sans SC',sans-serif;color:var(--text-dim);">小牌利庄</td>
+            </tr>
+            <tr>
+              <td class="card-label">4</td>
+              <td class="val-plus2">+2</td>
+              <td style="font-size:13px;font-family:'Noto Sans SC',sans-serif;color:var(--text-dim);">最利庄的牌</td>
+            </tr>
+            <tr>
+              <td class="card-label">5</td>
+              <td class="val-minus">−1</td>
+              <td style="font-size:13px;font-family:'Noto Sans SC',sans-serif;color:var(--text-dim);">大牌利闲</td>
+            </tr>
+            <tr>
+              <td class="card-label">6</td>
+              <td class="val-minus">−1</td>
+              <td style="font-size:13px;font-family:'Noto Sans SC',sans-serif;color:var(--text-dim);">大牌利闲</td>
+            </tr>
+            <tr>
+              <td class="card-label">7</td>
+              <td class="val-minus">−1</td>
+              <td style="font-size:13px;font-family:'Noto Sans SC',sans-serif;color:var(--text-dim);">大牌利闲</td>
+            </tr>
+            <tr>
+              <td class="card-label">8</td>
+              <td class="val-minus2">−2</td>
+              <td style="font-size:13px;font-family:'Noto Sans SC',sans-serif;color:var(--text-dim);">最利闲的牌</td>
+            </tr>
+            <tr>
+              <td class="card-label">9</td>
+              <td class="val-zero">0</td>
+              <td style="font-size:13px;font-family:'Noto Sans SC',sans-serif;color:var(--text-dim);">中性</td>
+            </tr>
+            <tr>
+              <td class="card-label">10/J/Q/K</td>
+              <td class="val-zero">0</td>
+              <td style="font-size:13px;font-family:'Noto Sans SC',sans-serif;color:var(--text-dim);">中性</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="margin-top:12px;">
+          <div class="rule-item rule-player">
+            <span>◀</span> 计数 ≤ −4 时押<strong>闲家</strong>（Player）
+          </div>
+          <div class="rule-item rule-banker">
+            <span>▶</span> 计数 > −4 时押<strong>庄家</strong>（Banker）
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.two-col -->
+
+  <!-- 赌场优势参考表 -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header">
+      <span class="card-icon">📊</span>
+      <span class="card-title">一级策略 — 赌场优势参考表</span>
+    </div>
+    <div class="card-body">
+      <div class="rule-box" style="margin-bottom:12px;">
+        使用一级策略时，玩家押闲家的概率约为 <strong>28.4%</strong>。下表显示不同计数区间对应的赌场优势。当计数 ≤ −4 时，押闲家的赌场优势低于押庄家。
+      </div>
+      <div class="edge-table-wrap">
+        <table class="edge-table" id="edgeTable">
+          <thead>
+            <tr>
+              <th>计数区间</th>
+              <th>建议押注</th>
+              <th>押庄赌场优势</th>
+              <th>押闲赌场优势</th>
+              <th>最优选择优势</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- 由JS填充 -->
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;font-size:13px;color:var(--text-dim);line-height:1.6;">
+        * 赌场优势为近似值，基于8副牌靴。庄家赔率1:1扣5%佣金（胜付0.95）。闲家赔率1:1。平局不计入。
+      </div>
+    </div>
+  </div>
+
+  <!-- 策略说明 -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-icon">💡</span>
+      <span class="card-title">策略说明</span>
+    </div>
+    <div class="card-body">
+      <div class="rule-box">
+        <strong>为什么小牌利庄，大牌利闲？</strong><br>
+        当牌靴中小牌（A~4）较多时，庄家在某些补牌规则下更可能补到好牌，因此庄家优势增大；当大牌（5~8）较多时，对闲家有利。9和10/J/Q/K对两方影响相近，计为0。
+      </div>
+      <div class="rule-box">
+        <strong>如何使用？</strong><br>
+        每局结束后，将本局出现的所有牌（通常4~6张）依次点击记录。计数会自动更新，页面顶部会给出当前建议：计数 ≤ −4 押闲，否则押庄。
+      </div>
+      <div class="rule-box">
+        <strong>真实计数（True Count）</strong><br>
+        真实计数 = 运行计数 ÷ 剩余副数。真实计数能更准确地反映当前牌靴的偏差程度，但一级策略决策点仍以运行计数 −4 为准。
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.container -->
+
+<script>
+// ── 一级策略计点值 ──
+// 0=10/J/Q/K, 1=A, 2-9
+const POINT_VALUES = {
+  0: 0,   // 10/J/Q/K
+  1: 1,   // A
+  2: 1,
+  3: 1,
+  4: 2,
+  5: -1,
+  6: -1,
+  7: -1,
+  8: -2,
+  9: 0,
+};
+
+// 各牌总数（8副）
+const TOTAL_PER_VAL = {
+  0: 128,  // 10/J/Q/K
+  1: 32, 2: 32, 3: 32, 4: 32, 5: 32,
+  6: 32, 7: 32, 8: 32, 9: 32,
+};
+
+// 牌面显示名
+const CARD_LABEL = {
+  0: '10', 1: 'A', 2: '2', 3: '3', 4: '4',
+  5: '5',  6: '6', 7: '7', 8: '8', 9: '9',
+};
+
+// 赌场优势参考数据（近似值，基于文献及精确枚举结果）
+// [countMin, countMax, bankerEdge%, playerEdge%]
+// 庄家优势: 正数=赌场赢，负数=玩家赢
+const EDGE_DATA = [
+  { label: '≤ −16',    bet: 'player', banker: 1.40, player: 0.55 },
+  { label: '−15 ~ −12',bet: 'player', banker: 1.32, player: 0.72 },
+  { label: '−11 ~ −8', bet: 'player', banker: 1.20, player: 0.88 },
+  { label: '−7 ~ −5',  bet: 'player', banker: 1.12, player: 0.98 },
+  { label: '−4',        bet: 'player', banker: 1.09, player: 1.06 },
+  { label: '−3 ~ −1',  bet: 'banker', banker: 1.05, player: 1.10 },
+  { label: '0',         bet: 'banker', banker: 1.06, player: 1.24 },
+  { label: '+1 ~ +3',  bet: 'banker', banker: 1.03, player: 1.32 },
+  { label: '+4 ~ +8',  bet: 'banker', banker: 0.98, player: 1.45 },
+  { label: '≥ +9',     bet: 'banker', banker: 0.90, player: 1.60 },
+];
+
+// ── 状态 ──
+let runningCount = 0;
+let history = [];  // [{val, point}]
+
+// ── 初始化UI ──
+function initChips() {
+  const row = document.getElementById('chipRow');
+  row.innerHTML = '';
+  // 顺序: A,2,3,4 | 分隔 | 5,6,7,8 | 分隔 | 9,10
+  const groups = [[1,2,3,4],[5,6,7,8],[9,0]];
+  groups.forEach((group, gi) => {
+    if (gi > 0) {
+      const sep = document.createElement('div');
+      sep.className = 'chip-sep';
+      row.appendChild(sep);
+    }
+    group.forEach(v => {
+      const chip = document.createElement('button');
+      chip.className = 'chip';
+      const pv = POINT_VALUES[v];
+      const tagClass = pv > 0 ? 'plus' : pv < 0 ? 'minus' : 'zero';
+      const pvStr = pv > 0 ? `+${pv}` : pv === 0 ? '0' : `${pv}`;
+      chip.innerHTML = `
+        <div class="chip-val">${CARD_LABEL[v]}</div>
+        <div class="chip-tag ${tagClass}">${pvStr}</div>
+      `;
+      chip.onclick = () => addCard(v);
+      row.appendChild(chip);
+    });
+  });
+}
+
+function initEdgeTable() {
+  const tbody = document.querySelector('#edgeTable tbody');
+  EDGE_DATA.forEach(row => {
+    const tr = document.createElement('tr');
+    const bestEdge = row.bet === 'player' ? row.player : row.banker;
+    const betLabel = row.bet === 'player'
+      ? '<span style="color:var(--player-col);font-weight:700;">闲家</span>'
+      : '<span style="color:var(--banker-col);font-weight:700;">庄家</span>';
+    const bankerClass = row.banker < 1.0 ? 'edge-good' : row.banker < 1.1 ? 'edge-ok' : 'edge-bad';
+    const playerClass = row.player < 1.0 ? 'edge-good' : row.player < 1.1 ? 'edge-ok' : 'edge-bad';
+    const bestClass   = bestEdge < 1.0 ? 'edge-good' : bestEdge < 1.1 ? 'edge-ok' : 'edge-bad';
+    tr.innerHTML = `
+      <td>${row.label}</td>
+      <td>${betLabel}</td>
+      <td class="${bankerClass}">${row.banker.toFixed(2)}%</td>
+      <td class="${playerClass}">${row.player.toFixed(2)}%</td>
+      <td class="${bestClass}">${bestEdge.toFixed(2)}%</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── 核心逻辑 ──
+function addCard(v) {
+  const pv = POINT_VALUES[v];
+  runningCount += pv;
+  history.push({ val: v, point: pv });
+  updateUI();
+}
+
+function undoLast() {
+  if (history.length === 0) return;
+  const last = history.pop();
+  runningCount -= last.point;
+  updateUI();
+}
+
+function resetAll() {
+  runningCount = 0;
+  history = [];
+  updateUI();
+}
+
+// ── 更新显示 ──
+function updateUI() {
+  const total = history.length;
+  const remaining = 416 - total;
+  const decksLeft = remaining / 52;
+  const trueCount = decksLeft > 0 ? (runningCount / decksLeft) : 0;
+
+  // 计数大字
+  const el = document.getElementById('countDisplay');
+  el.classList.remove('positive', 'negative', 'zero', 'flash');
+  void el.offsetWidth; // reflow for animation restart
+  if (runningCount > 0) el.classList.add('positive', 'flash');
+  else if (runningCount < 0) el.classList.add('negative', 'flash');
+  else el.classList.add('zero', 'flash');
+  el.textContent = runningCount > 0 ? `+${runningCount}` : `${runningCount}`;
+
+  // 副行
+  document.getElementById('totalCards').textContent = total;
+  document.getElementById('trueCount').textContent = (trueCount > 0 ? '+' : '') + trueCount.toFixed(2);
+
+  // 策略建议
+  const adviceBox = document.getElementById('adviceBox');
+  const adviceText = document.getElementById('adviceText');
+  adviceBox.className = 'advice-box';
+  if (total === 0) {
+    adviceBox.classList.add('advice-neutral');
+    adviceText.innerHTML = '尚未记录任何牌';
+  } else if (runningCount <= -4) {
+    adviceBox.classList.add('advice-player');
+    adviceText.innerHTML = `计数 ${runningCount} ≤ −4 &nbsp;→&nbsp; <strong>押闲家（Player）</strong>`;
+  } else {
+    adviceBox.classList.add('advice-banker');
+    adviceText.innerHTML = `计数 ${runningCount > 0 ? '+' : ''}${runningCount} > −4 &nbsp;→&nbsp; <strong>押庄家（Banker）</strong>`;
+  }
+
+  // 统计数字
+  document.getElementById('statUsed').textContent = total;
+  document.getElementById('statLeft').textContent = remaining;
+  document.getElementById('statDecks').textContent = decksLeft.toFixed(1);
+
+  // 历史牌
+  const histList = document.getElementById('histList');
+  const histCount = document.getElementById('histCount');
+  histCount.textContent = total > 0 ? `(${total}张)` : '';
+  if (total === 0) {
+    histList.innerHTML = '<span class="history-empty">尚未记录任何牌…</span>';
+  } else {
+    histList.innerHTML = history.map(h => {
+      const pvClass = h.point > 0 ? 'val-pos' : h.point < 0 ? 'val-neg' : 'val-0';
+      return `<div class="hist-chip ${pvClass}">${CARD_LABEL[h.val]}</div>`;
+    }).join('');
+    // 滚动到最新
+    const wrap = histList.parentElement;
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  // 高亮赌场优势表当前行
+  updateEdgeHighlight();
+
+  // 撤销按钮状态
+  document.getElementById('btnUndo').disabled = total === 0;
+  document.getElementById('btnUndo').style.opacity = total === 0 ? '0.4' : '1';
+}
+
+function updateEdgeHighlight() {
+  const rows = document.querySelectorAll('#edgeTable tbody tr');
+  rows.forEach((tr, i) => {
+    tr.classList.remove('current-row');
+  });
+
+  // 根据计数找到当前行
+  let idx = -1;
+  if (runningCount <= -16) idx = 0;
+  else if (runningCount <= -12) idx = 1;
+  else if (runningCount <= -8)  idx = 2;
+  else if (runningCount <= -5)  idx = 3;
+  else if (runningCount === -4) idx = 4;
+  else if (runningCount <= -1)  idx = 5;
+  else if (runningCount === 0)  idx = 6;
+  else if (runningCount <= 3)   idx = 7;
+  else if (runningCount <= 8)   idx = 8;
+  else idx = 9;
+
+  if (idx >= 0 && rows[idx]) {
+    rows[idx].classList.add('current-row');
+  }
+}
+
+// ── 启动 ──
+initChips();
+initEdgeTable();
+updateUI();
+</script>
+</body>
+</html>

@@ -443,9 +443,13 @@ function clearHistory(){history.length=0;renderHistory();}
 async function runSimulation(){
   const hands=Math.max(1,Math.min(10000,parseInt(document.getElementById('hands-input').value)||65));
   const repeat=Math.max(1,Math.min(100,parseInt(document.getElementById('repeat-input').value)||1));
-  document.getElementById('btn-sim').disabled=true;
+  const btn=document.getElementById('btn-sim');
+  btn.disabled=true;
+  // repeat=1 时用全屏遮罩；repeat>1 时只用按钮文字，保持结果区可见（流式）
+  if(repeat===1) setLoading(true,'模拟发牌中...');
+  else btn.textContent=`模拟中 1 / ${repeat}...`;
   for(let i=0;i<repeat;i++){
-    setLoading(true,repeat>1?`模拟第 ${i+1} / ${repeat} 次...`:'模拟发牌中...');
+    if(repeat>1) btn.textContent=`模拟中 ${i+1} / ${repeat}...`;
     try{
       const res=await fetch(API_BASE+'/simulate-l6combo',{
         method:'POST',headers:{'Content-Type':'application/json'},
@@ -461,9 +465,10 @@ async function runSimulation(){
       });
       renderHistory();
     }catch(e){showError('模拟失败：'+e.message);break;}
-    finally{setLoading(false);}
   }
-  document.getElementById('btn-sim').disabled=false;
+  if(repeat===1) setLoading(false);
+  btn.disabled=false;
+  btn.textContent='开始模拟';
 }
 </script>
 </body>

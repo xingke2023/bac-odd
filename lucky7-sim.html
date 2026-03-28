@@ -556,8 +556,8 @@
     <hr class="input-divider">
     <div class="input-row" style="margin-bottom:0;">
       <span class="input-label">重复次数：</span>
-      <input type="number" class="input-num" id="repeat-input" value="1" min="1" max="100">
-      <span class="input-hint">（同参数连续跑多次，累计统计，最多100次）</span>
+      <input type="number" class="input-num" id="repeat-input" value="1" min="1" max="1000">
+      <span class="input-hint">（同参数连续跑多次，累计统计，最多1000次）</span>
     </div>
     <button class="btn-simulate" id="btn-sim" onclick="runSimulation()">开始模拟</button>
   </div>
@@ -891,10 +891,10 @@ async function runSimulation() {
   const handsInput  = parseInt(document.getElementById('hands-input').value, 10);
   const repeatInput = parseInt(document.getElementById('repeat-input').value, 10);
   if (isNaN(handsInput) || handsInput < 1) { showError('请输入有效局数（1-10000）'); return; }
-  if (isNaN(repeatInput) || repeatInput < 1) { showError('请输入有效重复次数（1-100）'); return; }
+  if (isNaN(repeatInput) || repeatInput < 1) { showError('请输入有效重复次数（1-1000）'); return; }
 
   const hands  = Math.min(10000, Math.max(1, handsInput));
-  const repeat = Math.min(100, Math.max(1, repeatInput));
+  const repeat = Math.min(1000, Math.max(1, repeatInput));
 
   document.getElementById('btn-sim').disabled = true;
 
